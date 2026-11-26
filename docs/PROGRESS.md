@@ -17441,6 +17441,25 @@ atomic visibility, readback, abort, and retirement cleanup. The JavaScript
 bindings and renderer reply handling still have to be connected. Origin
 private storage, persistent grants, and Windows support remain open.
 
+## Connect JavaScript pickers through the second Ladybird patch
+
+The applied 0002 patch binds the three Window picker promises to an owned
+renderer provider. The provider uses a dedicated native route separate from application IPC
+and preload worlds. Replies match the originating page, document,
+connection and request. The helper drops or rejects pending requests when
+their document becomes inactive, and the browser keeps native paths inside
+the chooser. Open and directory results have native handle prototypes.
+The initial handle surface supports getFile and read-only child lookup.
+The file snapshot currently has a 16 MiB limit. Picker filter and start-in
+options, writable directory access, persistent grants, origin-private
+storage, and worker sync access remain open. The browser can stage writes
+for save grants, and the Web WritableStream binding remains to be added.
+
+Both patch application and independent compilation of the generated
+bindings, C++ implementations, and the renderer IPC adapter passed on macOS.
+A full patched runtime build was started. JavaScript runtime acceptance
+remains open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

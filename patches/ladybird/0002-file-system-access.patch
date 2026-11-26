@@ -1,0 +1,663 @@
+diff --git a/Libraries/LibWeb/CMakeLists.txt b/Libraries/LibWeb/CMakeLists.txt
+index d9b2b106a2a..5687fbdbf75 100644
+--- a/Libraries/LibWeb/CMakeLists.txt
++++ b/Libraries/LibWeb/CMakeLists.txt
+@@ -270,6 +270,9 @@ set(SOURCES
+     Editing/VisiblePosition.cpp
+     Editing/ReplaceSelection.cpp
+     EntriesAPI/FileSystemEntry.cpp
++    FileSystemAccess/Handles.cpp
++    FileSystemAccess/Pickers.cpp
++    FileSystemAccess/Provider.cpp
+     EventTiming/EventTiming.cpp
+     Fetch/Body.cpp
+     Fetch/BodyInit.cpp
+diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.h
+new file mode 100644
+index 00000000000..05d4dcb763f
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.h
+@@ -0,0 +1,30 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#pragma once
++
++#include <LibWeb/FileSystemAccess/FileSystemHandle.h>
++
++namespace Web::FileSystemAccess {
++
++class FileSystemDirectoryHandle final : public FileSystemHandle {
++    WEB_WRAPPABLE(FileSystemDirectoryHandle, FileSystemHandle);
++    GC_DECLARE_ALLOCATOR(FileSystemDirectoryHandle);
++
++public:
++    WebIDL::ExceptionOr<void> get_directory_handle(Utf16String const&,
++        Bindings::FileSystemGetDirectoryOptions const&, GC::Ref<WebIDL::Promise>);
++    WebIDL::ExceptionOr<void> get_file_handle(
++        Utf16String const&, Bindings::FileSystemGetFileOptions const&, GC::Ref<WebIDL::Promise>);
++
++private:
++    friend class FileSystemHandle;
++
++    FileSystemDirectoryHandle(DOM::Document&, String, Utf16String);
++
++    WebIDL::ExceptionOr<void> child(
++        Utf16String const&, StringView kind, bool create, GC::Ref<WebIDL::Promise>);
++};
++
++}
+diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.idl b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.idl
+new file mode 100644
+index 00000000000..78a116b6cdb
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.idl
+@@ -0,0 +1,12 @@
++dictionary FileSystemGetDirectoryOptions {
++    boolean create = false;
++};
++dictionary FileSystemGetFileOptions {
++    boolean create = false;
++};
++
++[SecureContext, Exposed=Window]
++interface FileSystemDirectoryHandle : FileSystemHandle {
++    [CreatesPromise] Promise<FileSystemDirectoryHandle> getDirectoryHandle(USVString name, optional FileSystemGetDirectoryOptions options = {});
++    [CreatesPromise] Promise<FileSystemFileHandle> getFileHandle(USVString name, optional FileSystemGetFileOptions options = {});
++};
+diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.h
+new file mode 100644
+index 00000000000..088f781b9ba
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.h
+@@ -0,0 +1,24 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#pragma once
++
++#include <LibWeb/FileSystemAccess/FileSystemHandle.h>
++
++namespace Web::FileSystemAccess {
++
++class FileSystemFileHandle final : public FileSystemHandle {
++    WEB_WRAPPABLE(FileSystemFileHandle, FileSystemHandle);
++    GC_DECLARE_ALLOCATOR(FileSystemFileHandle);
++
++public:
++    WebIDL::ExceptionOr<void> get_file(GC::Ref<WebIDL::Promise>);
++
++private:
++    friend class FileSystemHandle;
++
++    FileSystemFileHandle(DOM::Document&, String, Utf16String);
++};
++
++}
+diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl
+new file mode 100644
+index 00000000000..86c604b4ab5
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl
+@@ -0,0 +1,4 @@
++[SecureContext, Exposed=Window]
++interface FileSystemFileHandle : FileSystemHandle {
++    [CreatesPromise] Promise<File> getFile();
++};
+diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
+new file mode 100644
+index 00000000000..332bc53cb85
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
+@@ -0,0 +1,52 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#pragma once
++
++#include <AK/JsonObject.h>
++#include <LibWeb/Bindings/FileSystemHandle.h>
++#include <LibWeb/Bindings/Wrappable.h>
++#include <LibWeb/WebIDL/Promise.h>
++
++namespace Web::FileSystemAccess {
++
++class FileSystemHandle : public Bindings::GCAllocatedWrappable {
++    WEB_WRAPPABLE(FileSystemHandle, Bindings::GCAllocatedWrappable);
++
++public:
++    static GC::Ptr<FileSystemHandle> from_grant(DOM::Document&, JsonObject const&);
++
++    Bindings::FileSystemHandleKind kind() const
++    {
++        return m_kind;
++    }
++
++    Utf16String const& name() const
++    {
++        return m_name;
++    }
++
++protected:
++    FileSystemHandle(DOM::Document&, String, Utf16String, Bindings::FileSystemHandleKind);
++
++    virtual void visit_edges(GC::Cell::Visitor&) override;
++
++    DOM::Document& document() const
++    {
++        return *m_document;
++    }
++
++    String const& token() const
++    {
++        return m_token;
++    }
++
++private:
++    GC::Ref<DOM::Document> m_document;
++    String m_token;
++    Utf16String m_name;
++    Bindings::FileSystemHandleKind m_kind;
++};
++
++}
+diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.idl b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.idl
+new file mode 100644
+index 00000000000..0a114826fd7
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.idl
+@@ -0,0 +1,7 @@
++enum FileSystemHandleKind { "file", "directory" };
++
++[SecureContext, Exposed=Window]
++interface FileSystemHandle {
++    readonly attribute FileSystemHandleKind kind;
++    readonly attribute USVString name;
++};
+diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemPickerOptions.idl b/Libraries/LibWeb/FileSystemAccess/FileSystemPickerOptions.idl
+new file mode 100644
+index 00000000000..3ec81472887
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/FileSystemPickerOptions.idl
+@@ -0,0 +1,26 @@
++enum FileSystemPermissionMode { "read", "readwrite" };
++enum WellKnownDirectory { "desktop", "documents", "downloads", "music", "pictures", "videos" };
++typedef (WellKnownDirectory or FileSystemHandle) FileSystemStartIn;
++
++dictionary FilePickerAcceptType {
++    USVString description = "";
++    record<USVString, (USVString or sequence<USVString>)> accept;
++};
++
++dictionary FilePickerOptions {
++    boolean excludeAcceptAllOption = false;
++    USVString id;
++    FileSystemStartIn startIn;
++    sequence<FilePickerAcceptType> types;
++};
++dictionary OpenFilePickerOptions : FilePickerOptions {
++    boolean multiple = false;
++};
++dictionary SaveFilePickerOptions : FilePickerOptions {
++    USVString? suggestedName;
++};
++dictionary DirectoryPickerOptions {
++    USVString id;
++    FileSystemStartIn startIn;
++    FileSystemPermissionMode mode = "read";
++};
+diff --git a/Libraries/LibWeb/FileSystemAccess/Handles.cpp b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
+new file mode 100644
+index 00000000000..fb18e141b70
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
+@@ -0,0 +1,150 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#include <LibGC/Heap.h>
++#include <LibGC/Root.h>
++#include <LibWeb/Bindings/FileSystemDirectoryHandle.h>
++#include <LibWeb/Bindings/WrapperWorld.h>
++#include <LibWeb/DOM/Document.h>
++#include <LibWeb/FileAPI/File.h>
++#include <LibWeb/FileSystemAccess/FileSystemDirectoryHandle.h>
++#include <LibWeb/FileSystemAccess/FileSystemFileHandle.h>
++#include <LibWeb/FileSystemAccess/Provider.h>
++#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
++#include <LibWeb/WebIDL/DOMException.h>
++
++namespace Web::FileSystemAccess {
++
++GC_DEFINE_ALLOCATOR(FileSystemDirectoryHandle);
++GC_DEFINE_ALLOCATOR(FileSystemFileHandle);
++
++FileSystemHandle::FileSystemHandle(
++    DOM::Document& document, String token, Utf16String name, Bindings::FileSystemHandleKind kind)
++    : m_document(document)
++    , m_token(move(token))
++    , m_name(move(name))
++    , m_kind(kind)
++{
++}
++
++void FileSystemHandle::visit_edges(GC::Cell::Visitor& visitor)
++{
++    Base::visit_edges(visitor);
++    visitor.visit(m_document);
++}
++
++GC::Ptr<FileSystemHandle> FileSystemHandle::from_grant(
++    DOM::Document& document, JsonObject const& metadata)
++{
++    auto name = metadata.get_string("name"sv);
++    auto token = metadata.get_string("token"sv);
++    auto kind = metadata.get_string("kind"sv);
++    if (!name.has_value() || !token.has_value() || !kind.has_value())
++        return nullptr;
++
++    auto& heap = GC::Heap::the();
++    if (*kind == "file"sv)
++        return heap.allocate<FileSystemFileHandle>(document, *token, Utf16String::from_utf8(*name));
++    if (*kind == "directory"sv)
++        return heap.allocate<FileSystemDirectoryHandle>(
++            document, *token, Utf16String::from_utf8(*name));
++    return nullptr;
++}
++
++FileSystemFileHandle::FileSystemFileHandle(DOM::Document& document, String token, Utf16String name)
++    : FileSystemHandle(document, move(token), move(name), Bindings::FileSystemHandleKind::File)
++{
++}
++
++FileSystemDirectoryHandle::FileSystemDirectoryHandle(
++    DOM::Document& document, String token, Utf16String name)
++    : FileSystemHandle(document, move(token), move(name), Bindings::FileSystemHandleKind::Directory)
++{
++}
++
++static void read_file(GC::Root<FileSystemFileHandle> handle, DOM::Document& document, String token,
++    GC::Root<WebIDL::Promise> promise, ByteBuffer contents)
++{
++    constexpr size_t chunk_size = 256 * 1024;
++    constexpr size_t maximum_file_size = 16 * 1024 * 1024;
++    JsonObject options;
++    options.set("operation"sv, "read"sv);
++    options.set("token"sv, token);
++    options.set("offset"sv, static_cast<u64>(contents.size()));
++    options.set("count"sv, static_cast<u64>(chunk_size));
++    request(document, move(options),
++        [handle = move(handle), &document, token = move(token), promise = move(promise),
++            contents = move(contents)](JsonObject result, ByteBuffer bytes) mutable {
++            if (reject_if_failed(*promise, result))
++                return;
++            if (bytes.size() > chunk_size || contents.size() + bytes.size() > maximum_file_size
++                || contents.try_append(bytes.bytes()).is_error()) {
++                reject(*promise, "QuotaExceededError"sv);
++                return;
++            }
++
++            if (bytes.size() == chunk_size) {
++                read_file(move(handle), document, move(token), move(promise), move(contents));
++                return;
++            }
++
++            auto& realm = WebIDL::promise_realm(*promise);
++            HTML::TemporaryExecutionContext context(realm);
++            auto file = FileAPI::File::create(contents.bytes(), handle->name(), {});
++            WebIDL::resolve_promise(
++                *promise, Bindings::wrap(Bindings::host_defined_wrapper_world(realm), realm, file));
++        });
++}
++
++WebIDL::ExceptionOr<void> FileSystemFileHandle::get_file(GC::Ref<WebIDL::Promise> promise)
++{
++    read_file(GC::Root { *this }, document(), token(), GC::Root { promise }, {});
++    return {};
++}
++
++WebIDL::ExceptionOr<void> FileSystemDirectoryHandle::get_directory_handle(Utf16String const& name,
++    Bindings::FileSystemGetDirectoryOptions const& options, GC::Ref<WebIDL::Promise> promise)
++{
++    return child(name, "directory"sv, options.create, promise);
++}
++
++WebIDL::ExceptionOr<void> FileSystemDirectoryHandle::get_file_handle(Utf16String const& name,
++    Bindings::FileSystemGetFileOptions const& options, GC::Ref<WebIDL::Promise> promise)
++{
++    return child(name, "file"sv, options.create, promise);
++}
++
++WebIDL::ExceptionOr<void> FileSystemDirectoryHandle::child(
++    Utf16String const& name, StringView kind, bool create, GC::Ref<WebIDL::Promise> promise)
++{
++    if (create)
++        return WebIDL::NotSupportedError::create("Creating directory entries is unavailable"_utf16);
++
++    JsonObject options;
++    options.set("operation"sv, "child"sv);
++    options.set("token"sv, token());
++    options.set("kind"sv, kind);
++    options.set("name"sv, name.to_well_formed_utf8());
++    request(document(), move(options),
++        [document = GC::Root { document() }, promise = GC::Root { promise }](
++            JsonObject result, ByteBuffer) {
++            if (reject_if_failed(*promise, result))
++                return;
++
++            auto handle = from_grant(*document, result);
++            if (!handle) {
++                reject(*promise, "UnknownError"sv);
++                return;
++            }
++
++            auto& realm = WebIDL::promise_realm(*promise);
++            HTML::TemporaryExecutionContext context(realm);
++            WebIDL::resolve_promise(*promise,
++                Bindings::wrap(
++                    Bindings::host_defined_wrapper_world(realm), realm, GC::Ref { *handle }));
++        });
++    return {};
++}
++
++}
+diff --git a/Libraries/LibWeb/FileSystemAccess/Pickers.cpp b/Libraries/LibWeb/FileSystemAccess/Pickers.cpp
+new file mode 100644
+index 00000000000..5df52813489
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/Pickers.cpp
+@@ -0,0 +1,136 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#include <AK/CharacterTypes.h>
++#include <AK/JsonArray.h>
++#include <LibGC/Root.h>
++#include <LibJS/Runtime/Array.h>
++#include <LibWeb/Bindings/FileSystemPickerOptions.h>
++#include <LibWeb/Bindings/WrapperWorld.h>
++#include <LibWeb/DOM/Document.h>
++#include <LibWeb/FileSystemAccess/FileSystemHandle.h>
++#include <LibWeb/FileSystemAccess/Provider.h>
++#include <LibWeb/HTML/Scripting/Environments.h>
++#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
++#include <LibWeb/HTML/Window.h>
++#include <LibWeb/WebIDL/DOMException.h>
++
++namespace Web::HTML {
++namespace {
++    WebIDL::ExceptionOr<void> check_picker(Window const& window, Optional<Utf16String> const& id)
++    {
++        if (id.has_value()) {
++            auto view = id->utf16_view();
++            if (view.length_in_code_units() > 32)
++                return WebIDL::SimpleException { WebIDL::SimpleExceptionType::TypeError,
++                    "Invalid file picker ID"_utf16 };
++            for (size_t i = 0; i < view.length_in_code_units(); ++i) {
++                auto c = view.code_unit_at(i);
++                if (!is_ascii_alphanumeric(c) && c != '_' && c != '-')
++                    return WebIDL::SimpleException { WebIDL::SimpleExceptionType::TypeError,
++                        "Invalid file picker ID"_utf16 };
++            }
++        }
++
++        auto const& settings = window.relevant_settings_object();
++        if (!window.is_secure_context() || settings.origin().is_opaque()
++            || !settings.top_level_origin.has_value()
++            || !settings.origin().is_same_origin(*settings.top_level_origin)
++            || !window.associated_document().is_fully_active()
++            || !window.has_transient_activation())
++            return WebIDL::SecurityError::create(
++                "A secure same-origin active document and user activation are required"_utf16);
++        return {};
++    }
++
++    void pick(Window& window, JsonObject options, GC::Ref<WebIDL::Promise> promise, bool as_array)
++    {
++        FileSystemAccess::request(window.associated_document(), move(options),
++            [document = GC::Root { window.associated_document() }, promise = GC::Root { promise },
++                as_array](JsonObject result, ByteBuffer) {
++                using namespace FileSystemAccess;
++                if (reject_if_failed(*promise, result))
++                    return;
++
++                auto grants = result.get_array("handles"sv);
++                if (!grants.has_value() || grants->is_empty()
++                    || (!as_array && grants->size() != 1)) {
++                    reject(*promise, "UnknownError"sv);
++                    return;
++                }
++
++                auto& realm = WebIDL::promise_realm(*promise);
++                TemporaryExecutionContext context(realm);
++                GC::RootVector<JS::Value> handles;
++                for (size_t i = 0; i < grants->size(); ++i) {
++                    auto const& grant = grants->at(i);
++                    auto handle = grant.is_object()
++                        ? FileSystemHandle::from_grant(*document, grant.as_object())
++                        : nullptr;
++                    if (!handle) {
++                        reject(*promise, "UnknownError"sv);
++                        return;
++                    }
++                    handles.append(Bindings::wrap(
++                        Bindings::host_defined_wrapper_world(realm), realm, GC::Ref { *handle }));
++                }
++
++                if (as_array)
++                    WebIDL::resolve_promise(
++                        *promise, JS::Array::create_from(realm, handles.span()));
++                else
++                    WebIDL::resolve_promise(*promise, handles[0]);
++            });
++    }
++}
++
++WebIDL::ExceptionOr<void> Window::show_open_file_picker(
++    Bindings::OpenFilePickerOptions const& options, GC::Ref<WebIDL::Promise> promise)
++{
++    TRY(check_picker(*this, options.id));
++    if (options.types.has_value() || options.start_in.has_value()
++        || options.exclude_accept_all_option)
++        return WebIDL::NotSupportedError::create(
++            "Picker filters and start locations are unavailable"_utf16);
++
++    JsonObject request;
++    request.set("operation"sv, "open"sv);
++    request.set("multiple"sv, options.multiple);
++    pick(*this, move(request), promise, true);
++    return {};
++}
++
++WebIDL::ExceptionOr<void> Window::show_directory_picker(
++    Bindings::DirectoryPickerOptions const& options, GC::Ref<WebIDL::Promise> promise)
++{
++    TRY(check_picker(*this, options.id));
++    if (options.mode == Bindings::FileSystemPermissionMode::Readwrite
++        || options.start_in.has_value())
++        return WebIDL::NotSupportedError::create(
++            "Writable directory selection and start locations are unavailable"_utf16);
++
++    JsonObject request;
++    request.set("operation"sv, "directory"sv);
++    pick(*this, move(request), promise, false);
++    return {};
++}
++
++WebIDL::ExceptionOr<void> Window::show_save_file_picker(
++    Bindings::SaveFilePickerOptions const& options, GC::Ref<WebIDL::Promise> promise)
++{
++    TRY(check_picker(*this, options.id));
++    if (options.types.has_value() || options.start_in.has_value()
++        || options.exclude_accept_all_option)
++        return WebIDL::NotSupportedError::create(
++            "Picker filters and start locations are unavailable"_utf16);
++
++    JsonObject request;
++    request.set("operation"sv, "save"sv);
++    if (options.suggested_name.has_value() && options.suggested_name->has_value())
++        request.set("suggestedName"sv, options.suggested_name->value().to_well_formed_utf8());
++    pick(*this, move(request), promise, false);
++    return {};
++}
++
++}
+diff --git a/Libraries/LibWeb/FileSystemAccess/Provider.cpp b/Libraries/LibWeb/FileSystemAccess/Provider.cpp
+new file mode 100644
+index 00000000000..937467e50de
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/Provider.cpp
+@@ -0,0 +1,54 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#include <LibJS/Runtime/Error.h>
++#include <LibWeb/FileSystemAccess/Provider.h>
++#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
++#include <LibWeb/WebIDL/DOMException.h>
++
++namespace Web::FileSystemAccess {
++static Provider s_provider;
++
++void set_provider(Provider provider)
++{
++    s_provider = provider;
++}
++
++void request(DOM::Document& document, JsonObject options, Completion complete, ReadonlyBytes bytes)
++{
++    if (!s_provider) {
++        JsonObject result;
++        result.set("error"sv, "NotSupportedError"sv);
++        complete(move(result), {});
++        return;
++    }
++
++    s_provider(document, move(options), bytes, move(complete));
++}
++
++void reject(WebIDL::Promise const& promise, StringView name)
++{
++    auto& realm = WebIDL::promise_realm(promise);
++    HTML::TemporaryExecutionContext context(realm);
++    auto message = "The filesystem operation could not be completed."_utf16;
++    if (name == "TypeError"sv) {
++        WebIDL::reject_promise(promise, JS::TypeError::create(realm, message));
++        return;
++    }
++
++    WebIDL::reject_promise(
++        promise, WebIDL::DOMException::create(MUST(FlyString::from_utf8(name)), message));
++}
++
++bool reject_if_failed(WebIDL::Promise const& promise, JsonObject const& result)
++{
++    auto error = result.get_string("error"sv);
++    if (!error.has_value())
++        return false;
++
++    reject(promise, error->bytes_as_string_view());
++    return true;
++}
++
++}
+diff --git a/Libraries/LibWeb/FileSystemAccess/Provider.h b/Libraries/LibWeb/FileSystemAccess/Provider.h
+new file mode 100644
+index 00000000000..e81b0834d91
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/Provider.h
+@@ -0,0 +1,27 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#pragma once
++
++#include <AK/ByteBuffer.h>
++#include <AK/Function.h>
++#include <AK/JsonObject.h>
++#include <LibWeb/Export.h>
++#include <LibWeb/Forward.h>
++#include <LibWeb/WebIDL/Promise.h>
++
++namespace Web::FileSystemAccess {
++
++using Completion = Function<void(JsonObject, ByteBuffer)>;
++using Provider = void (*)(DOM::Document&, JsonObject, ReadonlyBytes, Completion);
++
++WEB_API void set_provider(Provider);
++
++void request(DOM::Document&, JsonObject, Completion, ReadonlyBytes = {});
++
++void reject(WebIDL::Promise const&, StringView name);
++
++bool reject_if_failed(WebIDL::Promise const&, JsonObject const&);
++
++}
+diff --git a/Libraries/LibWeb/HTML/Window.h b/Libraries/LibWeb/HTML/Window.h
+index d5ab5df6866..ef2627ef998 100644
+--- a/Libraries/LibWeb/HTML/Window.h
++++ b/Libraries/LibWeb/HTML/Window.h
+@@ -214,6 +214,10 @@ public:
+     WebIDL::ExceptionOr<GC::Ptr<WindowProxy>> open(Optional<Utf16String> const& url, Optional<Utf16String> const& target, Optional<Utf16String> const& features);
+ 
+     [[nodiscard]] GC::Ref<Navigator> navigator();
++
++    WebIDL::ExceptionOr<void> show_open_file_picker(Bindings::OpenFilePickerOptions const&, GC::Ref<WebIDL::Promise>);
++    WebIDL::ExceptionOr<void> show_directory_picker(Bindings::DirectoryPickerOptions const&, GC::Ref<WebIDL::Promise>);
++    WebIDL::ExceptionOr<void> show_save_file_picker(Bindings::SaveFilePickerOptions const&, GC::Ref<WebIDL::Promise>);
+     GC::Ptr<Navigator> navigator_if_created() const { return m_navigator; }
+     [[nodiscard]] GC::Ref<CloseWatcherManager> close_watcher_manager();
+     [[nodiscard]] GC::Ref<CookieStore::CookieStore> cookie_store();
+diff --git a/Libraries/LibWeb/HTML/Window.idl b/Libraries/LibWeb/HTML/Window.idl
+index d19afde0707..f7a672f3b46 100644
+--- a/Libraries/LibWeb/HTML/Window.idl
++++ b/Libraries/LibWeb/HTML/Window.idl
+@@ -75,6 +75,13 @@ partial interface Window {
+     boolean find(optional DOMString string = "");
+ };
+ 
++// https://wicg.github.io/file-system-access/#api-filesystemwindow
++partial interface Window {
++    [SecureContext, CreatesPromise] Promise<sequence<FileSystemFileHandle>> showOpenFilePicker(optional OpenFilePickerOptions options = {});
++    [SecureContext, CreatesPromise] Promise<FileSystemDirectoryHandle> showDirectoryPicker(optional DirectoryPickerOptions options = {});
++    [SecureContext, CreatesPromise] Promise<FileSystemFileHandle> showSaveFilePicker(optional SaveFilePickerOptions options = {});
++};
++
+ Window includes AnimationFrameProvider;
+ Window includes GlobalEventHandlers;
+ Window includes WindowEventHandlers;
+diff --git a/Libraries/LibWeb/idl_files.cmake b/Libraries/LibWeb/idl_files.cmake
+index c466d9fde06..f61b61b44b8 100644
+--- a/Libraries/LibWeb/idl_files.cmake
++++ b/Libraries/LibWeb/idl_files.cmake
+@@ -160,6 +160,10 @@ libweb_js_bindings(Encoding/TextEncoderCommon)
+ libweb_js_bindings(Encoding/TextEncoderStream)
+ libweb_js_bindings(EncryptedMediaExtensions/MediaKeySystemAccess)
+ libweb_js_bindings(EntriesAPI/FileSystemEntry)
++libweb_js_bindings(FileSystemAccess/FileSystemHandle)
++libweb_js_bindings(FileSystemAccess/FileSystemFileHandle)
++libweb_js_bindings(FileSystemAccess/FileSystemDirectoryHandle)
++libweb_js_bindings(FileSystemAccess/FileSystemPickerOptions)
+ libweb_js_bindings(EventTiming/EventCounts)
+ libweb_js_bindings(EventTiming/PerformanceEventTiming)
+ libweb_js_bindings(Fetch/Body)
+diff --git a/Services/WebContent/PageClient.h b/Services/WebContent/PageClient.h
+index 99d4e7036ea..5193dc1f044 100644
+--- a/Services/WebContent/PageClient.h
++++ b/Services/WebContent/PageClient.h
+@@ -55,6 +55,8 @@ public:
+ 
+     virtual Web::PageId id() const override { return m_id; }
+ 
++    ConnectionFromClient& file_access_connection() const { return client(); }
++
+     virtual bool is_headless() const override;
+     static void set_is_headless(bool);
+ 

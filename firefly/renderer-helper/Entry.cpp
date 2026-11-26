@@ -8,6 +8,7 @@
 #include "RendererSession.h"
 #include "autoplay/Session.h"
 #include "canvas/Session.h"
+#include "file-access/Session.h"
 #include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginConfig.h"
 #include "permissions/Session.h"
@@ -38,6 +39,7 @@ void firefly_initialize_renderer_vm(HTML::AgentType type)
     Firefly::Autoplay::initialize_owned();
     Firefly::HelperCanvas::initialize();
     Firefly::HelperPermissions::initialize();
+    Firefly::HelperFileAccess::initialize();
     Firefly::HelperWebRequest::initialize();
     Firefly::RendererSession::initialize();
     Firefly::Resources::initialize();
@@ -64,6 +66,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     Firefly::TitleBarOverlay::shutdown();
     Firefly::HelperCanvas::shutdown();
     Firefly::HelperWebRequest::shutdown();
+    Firefly::HelperFileAccess::shutdown();
     Firefly::HelperPermissions::shutdown();
     Firefly::Resources::shutdown();
     Firefly::RendererSession::shutdown();
