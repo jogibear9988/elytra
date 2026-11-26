@@ -61,6 +61,16 @@ self.onmessage = async ({ data }) => {
 };
 `;
 
+const nativeHandleWorker = `
+self.onmessage = async ({ data: handle }) => {
+  try {
+    postMessage({ contents: await (await handle.getFile()).text() });
+  } catch (error) {
+    postMessage({ error: error.name + ': ' + error.message });
+  }
+};
+`;
+
 const storageCode = `
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -140,6 +150,14 @@ const operations = [
     check(permission === 'granted', 'restored native read permission');
     check(await (await rememberedNative.getFile()).text() === 'original', 'restored read sees selected file');
     check(await rememberedNative.queryPermission({ mode: 'readwrite' }) === 'prompt', 'read approval does not grant write');
+    const recipient = new Worker('/native-handle-worker.js', { type: 'module' });
+    const observed = await new Promise((resolve, reject) => {
+      recipient.onmessage = ({ data }) => resolve(data);
+      recipient.onmessageerror = () => reject(Error('worker could not decode the native handle'));
+      recipient.onerror = (event) => reject(Error(event.message || 'native handle worker failed'));
+      recipient.postMessage(rememberedNative);
+    }).finally(() => recipient.terminate());
+    check(observed.contents === 'original', observed.error || 'worker reads native file with remembered permission');
   },
   async () => {
     const directory = await showDirectoryPicker({ mode: 'readwrite', id: 'fixtures', startIn: selected });
@@ -354,7 +372,9 @@ try {
   document.title = stored instanceof FileSystemFileHandle && await stored.isSameEntry(file)
     && await (await stored.getFile()).text() === 'private contents'
     && native instanceof FileSystemFileHandle && native.name === 'selected.txt'
-    && await native.queryPermission() === 'prompt'
+    && await native.queryPermission() === 'granted'
+    && await native.queryPermission({ mode: 'readwrite' }) === 'prompt'
+    && await (await native.getFile()).text() === 'modified with permission'
     ? 'PASS_RELOAD' : 'FAIL:stored handle';
 } catch (error) {
   document.title = error.name === 'NotFoundError' ? 'PASS_ISOLATED' : 'FAIL:' + error.name;
@@ -376,6 +396,11 @@ const otherOrigin = createServer((request, response) => {
 
 const server = createServer((request, response) => {
   response.setHeader('connection', 'close');
+  if (request.url === '/native-handle-worker.js') {
+    response.setHeader('content-type', 'text/javascript');
+    response.end(nativeHandleWorker);
+    return;
+  }
   if (request.url === '/worker.js' || request.url === '/clone-worker.js') {
     response.setHeader('content-type', 'text/javascript');
     response.end(request.url === '/worker.js' ? workerSource : cloneWorker);

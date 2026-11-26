@@ -17591,6 +17591,22 @@ refusal after read-only approval, and isolation from another origin's
 reference. Persistent permission decisions, private-browsing storage,
 and the Windows native provider remain open.
 
+## Remember explicitly approved native filesystem permissions
+
+The browser permission prompt now offers an opt-in to remember a native
+read or edit decision. The profile stores these decisions separately from
+the serialized reference. Restoration checks the permission for the
+authenticated origin and the entry or an authorized ancestor. Approving
+read access does not grant editing. A same-origin worker can open an
+explicitly authorized native handle without displaying a prompt.
+
+The macOS Release build and hidden native and browser probes passed.
+They cover a freshly restored handle in the prompt state, remembered read
+and edit decisions, read-only restoration after navigation, and a same-origin
+worker reading a remembered native file. Windows, private-browsing storage,
+native drag-and-drop handles, and shared-worker, service-worker, and
+Linux runtime coverage remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

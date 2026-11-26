@@ -47,9 +47,9 @@ public:
     using GrantCompletion = Function<void(ErrorOr<Vector<FileAccessGrants::Handle>>)>;
     ErrorOr<void> request_grants(FileAccessGrants::Document, Selection const&, GrantCompletion);
 
-    using PermissionCompletion = Function<void(bool)>;
-    bool request_permission(
-        QString const& origin, QString const& name, bool writable, PermissionCompletion);
+    using PermissionCompletion = Function<void(bool granted, bool remember)>;
+    bool request_permission(QString const& origin, QString const& name, bool writable,
+        bool can_remember, PermissionCompletion);
 
     QString remembered_directory(QString const& key) const;
 

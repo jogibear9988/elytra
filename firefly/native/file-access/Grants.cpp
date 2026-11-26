@@ -1038,6 +1038,61 @@ static bool valid_reference_ticket(StringView value)
 
     return true;
 }
+
+enum class RememberedAccess : u8 {
+    None,
+    Read,
+    Write,
+};
+
+static ErrorOr<bool> permission_marker(int directory, StringView name)
+{
+    struct stat metadata {};
+    auto basename = ByteString { name };
+    if (fstatat(directory, basename.characters(), &metadata, AT_SYMLINK_NOFOLLOW) < 0) {
+        if (errno == ENOENT)
+            return false;
+        return Error::from_errno(errno);
+    }
+
+    if (!S_ISREG(metadata.st_mode) || metadata.st_uid != geteuid() || (metadata.st_mode & 0077)
+        || metadata.st_size != 0)
+        return Error::from_errno(EACCES);
+    return true;
+}
+
+static ErrorOr<RememberedAccess> remembered_access(
+    int origin_directory, FileAccessGrants::NativeReference const& reference)
+{
+    using Kind = FileAccessGrants::Kind;
+    auto permissions = open_entry(origin_directory, ".permissions"sv, Kind::Directory);
+    if (permissions.is_error()) {
+        if (permissions.error().is_errno() && permissions.error().code() == ENOENT)
+            return RememberedAccess::None;
+        return permissions.release_error();
+    }
+
+    auto current = open_entry(
+        permissions.value()->fd(), reference.ticket.bytes_as_string_view(), Kind::Directory);
+    auto access = RememberedAccess::None;
+    for (size_t depth = 0;; ++depth) {
+        if (current.is_error()) {
+            if (current.error().is_errno() && current.error().code() == ENOENT)
+                return access;
+            return current.release_error();
+        }
+
+        auto fd = current.value()->fd();
+        if (TRY(permission_marker(fd, ".elytra-file-write"sv)))
+            return RememberedAccess::Write;
+        if (TRY(permission_marker(fd, ".elytra-file-read"sv)))
+            access = RememberedAccess::Read;
+        if (depth == reference.components.size())
+            return access;
+        current
+            = open_entry(fd, reference.components[depth].bytes_as_string_view(), Kind::Directory);
+    }
+}
 #endif
 
 ErrorOr<void> FileAccessGrants::issue_native_reference(
@@ -1171,12 +1226,15 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::reopen_native(Document owner
         current = move(next);
     }
 
-    // Restoration grants identity only. The browsing context asks for access
-    // separately, even when it reads a handle from an older IndexedDB record.
+    // Only an explicit browser decision can survive navigation. The opaque
+    // serialized reference itself carries no authority to read or change files.
+    auto access = TRY(remembered_access(directory->fd(), reference));
     auto& restored = m_entries.find(current.token)->value;
-    restored.readable = false;
+    restored.readable = access != RememberedAccess::None;
     restored.native_reference = reference;
     current.native_reference = reference;
+    if (access == RememberedAccess::Write)
+        TRY(set_write_permission(owner, current.token, true));
     release_current.disarm();
     return current;
 #endif
@@ -1236,6 +1294,47 @@ ErrorOr<String> FileAccessGrants::directory_hint(Document owner, String const& t
         return path;
     auto directory = LexicalPath::dirname(path.to_byte_string());
     return String::from_utf8(directory.view());
+#endif
+}
+
+bool FileAccessGrants::has_native_reference(Document owner, String const& token) const
+{
+    auto entry = lookup(owner, token, false);
+    return !entry.is_error() && entry.value()->native_reference.has_value();
+}
+
+ErrorOr<void> FileAccessGrants::remember_permission(Document owner, String const& token,
+    StringView profile_data, StringView origin_key, bool writable)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)profile_data;
+    (void)origin_key;
+    (void)writable;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto entry = TRY(lookup(owner, token));
+    if (!entry->native_reference.has_value() || (writable && !entry->writable))
+        return Error::from_errno(EACCES);
+
+    auto const& reference = *entry->native_reference;
+    auto origin = TRY(native_reference_directory(profile_data, origin_key));
+    auto permissions = TRY(open_private_directory(origin->fd(), ".permissions"sv));
+    auto current
+        = TRY(open_private_directory(permissions->fd(), reference.ticket.bytes_as_string_view()));
+    for (auto const& component : reference.components)
+        current = TRY(open_private_directory(current->fd(), component.bytes_as_string_view()));
+
+    auto mode = writable ? ".elytra-file-write"sv : ".elytra-file-read"sv;
+    auto marker = ByteString { mode };
+    auto fd = openat(current->fd(), marker.characters(),
+        O_RDONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd >= 0)
+        return Core::System::close(fd);
+    if (errno == EEXIST && TRY(permission_marker(current->fd(), mode)))
+        return {};
+    return Error::from_errno(errno);
 #endif
 }
 

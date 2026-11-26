@@ -109,6 +109,11 @@ public:
 
     ErrorOr<String> directory_hint(Document, String const& token) const;
 
+    bool has_native_reference(Document, String const& token) const;
+
+    ErrorOr<void> remember_permission(Document, String const& token, StringView profile_data,
+        StringView origin_key, bool writable);
+
     ErrorOr<void> set_read_permission(Document, String const& token, bool granted);
 
     ErrorOr<void> set_write_permission(Document, String const& token, bool granted);

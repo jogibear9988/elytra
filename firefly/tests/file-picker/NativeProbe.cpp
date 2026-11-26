@@ -397,6 +397,27 @@ int main(int argc, char** argv)
         require(!grants.read(foreign, restored.token, 0, 4).is_error()
                 && grants.begin_write(foreign, restored.token, false).is_error(),
             "read approval allows bytes but does not allow edits");
+        require(!grants
+                    .remember_permission(
+                        foreign, restored.token, profile_path, "fixture-bucket"sv, false)
+                    .is_error(),
+            "record a browser-approved native read grant");
+        auto after_reopen = MUST(grants.reopen_native(
+            owner, profile_path, "fixture-bucket"sv, reference, Grants::Kind::File));
+        require(MUST(grants.permission(owner, after_reopen.token, false)) == "granted"sv
+                && MUST(grants.permission(owner, after_reopen.token, true)) == "prompt"sv,
+            "native read decision persists without granting write permission");
+        require(!grants.set_write_permission(owner, after_reopen.token, true).is_error()
+                && !grants
+                    .remember_permission(
+                        owner, after_reopen.token, profile_path, "fixture-bucket"sv, true)
+                    .is_error(),
+            "record a browser-approved native write grant");
+        auto writable_reopen = MUST(grants.reopen_native(
+            foreign, profile_path, "fixture-bucket"sv, reference, Grants::Kind::File));
+        auto durable_writer = MUST(grants.begin_write(foreign, writable_reopen.token, false));
+        require(!grants.finish_write(foreign, durable_writer, false).is_error(),
+            "remembered write opens a staged writer");
         require(!grants.remove(owner, bucket.value().token, "secret.txt"sv, false).is_error(),
             "remove private test file");
         grants.set_private_area({});

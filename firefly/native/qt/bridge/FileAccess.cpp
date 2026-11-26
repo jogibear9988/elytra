@@ -877,27 +877,50 @@ void Bridge::Impl::initialize_file_access()
                 return;
             }
 
-            bool shown
-                = picker.request_permission(qt_string(origin), qt_string(name.value()), writable,
-                    [this, reply, token = *token, writable,
-                        picker = QPointer<FilePicker> { &picker }](bool granted) {
-                        if (!picker || !permission_contents(*reply.page, reply.document)) {
-                            reply.fail("AbortError"sv);
+            Optional<ByteString> origin_key;
+            if (picker.grants().has_native_reference(reply.document, *token)) {
+                auto const& settings
+                    = document->relevant_global_object().relevant_settings_object();
+                if (auto key = WebView::obtain_a_storage_key(settings); key.has_value()) {
+                    auto serialized = key->to_string();
+                    origin_key
+                        = WebView::Profile::routing_identifier(serialized.bytes_as_string_view());
+                }
+            }
+
+            auto can_remember = origin_key.has_value();
+            bool shown = picker.request_permission(qt_string(origin), qt_string(name.value()),
+                writable, can_remember,
+                [this, reply, token = *token, writable, origin_key = move(origin_key),
+                    profile_data = canonical_data.toUtf8(),
+                    picker = QPointer<FilePicker> { &picker }](bool granted, bool remember) {
+                    if (!picker || !permission_contents(*reply.page, reply.document)) {
+                        reply.fail("AbortError"sv);
+                        return;
+                    }
+
+                    auto stored = writable
+                        ? picker->grants().set_write_permission(reply.document, token, granted)
+                        : picker->grants().set_read_permission(reply.document, token, granted);
+                    if (stored.is_error()) {
+                        reply.fail(stored.error());
+                        return;
+                    }
+
+                    if (remember && origin_key.has_value()) {
+                        auto persisted = picker->grants().remember_permission(reply.document, token,
+                            StringView(profile_data.constData(), profile_data.size()),
+                            origin_key->view(), writable);
+                        if (persisted.is_error()) {
+                            reply.fail(persisted.error());
                             return;
                         }
+                    }
 
-                        auto stored = writable
-                            ? picker->grants().set_write_permission(reply.document, token, granted)
-                            : picker->grants().set_read_permission(reply.document, token, granted);
-                        if (stored.is_error()) {
-                            reply.fail(stored.error());
-                            return;
-                        }
-
-                        JsonObject result;
-                        result.set("permission"sv, granted ? "granted"sv : "denied"sv);
-                        reply.send(move(result));
-                    });
+                    JsonObject result;
+                    result.set("permission"sv, granted ? "granted"sv : "denied"sv);
+                    reply.send(move(result));
+                });
             if (!shown)
                 reply.fail("InvalidStateError"sv);
             return;

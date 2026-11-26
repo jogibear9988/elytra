@@ -1,6 +1,7 @@
 /** Own one nonmodal chooser per view and retire it before navigation/crash/destruction. */
 #include "Picker.h"
 #include <AK/ScopeGuard.h>
+#include <QCheckBox>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -74,7 +75,7 @@ void FilePicker::cancel()
         permission->reject();
         permission->deleteLater();
         if (complete)
-            complete(false);
+            complete(false, false);
     }
 
     if (auto dialog = m_dialog) {
@@ -87,8 +88,8 @@ void FilePicker::cancel()
     }
 }
 
-bool FilePicker::request_permission(
-    QString const& origin, QString const& name, bool writable, PermissionCompletion complete)
+bool FilePicker::request_permission(QString const& origin, QString const& name, bool writable,
+    bool can_remember, PermissionCompletion complete)
 {
     if (!complete || m_dialog || m_permission_dialog)
         return false;
@@ -99,6 +100,8 @@ bool FilePicker::request_permission(
         &m_parent);
     m_permission_dialog = box;
     m_permission_completion = move(complete);
+    if (can_remember)
+        box->setCheckBox(new QCheckBox(QStringLiteral("Remember this permission"), box));
     box->setTextFormat(Qt::PlainText);
     box->setDefaultButton(QMessageBox::No);
     box->setAttribute(Qt::WA_DeleteOnClose);
@@ -107,7 +110,8 @@ bool FilePicker::request_permission(
             return;
         m_permission_dialog = nullptr;
         auto complete = move(m_permission_completion);
-        complete(result == QMessageBox::Yes);
+        auto granted = result == QMessageBox::Yes;
+        complete(granted, granted && box->checkBox() && box->checkBox()->isChecked());
     });
     box->open();
     return true;

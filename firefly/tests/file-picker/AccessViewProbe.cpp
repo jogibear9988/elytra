@@ -2,6 +2,7 @@
 #include "native/qt/hub/Frontend.h"
 #include <QAbstractButton>
 #include <QApplication>
+#include <QCheckBox>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QMouseEvent>
@@ -28,7 +29,11 @@ public:
             if (auto* box = qobject_cast<QMessageBox*>(object);
                 box && box->text().startsWith("Allow ")) {
                 box->setOption(QMessageBox::Option::DontUseNativeDialog);
-                QTimer::singleShot(0, box, [box] { box->button(QMessageBox::Yes)->click(); });
+                QTimer::singleShot(0, box, [box] {
+                    if (box->checkBox() && box->text().contains(" to read "))
+                        box->checkBox()->setChecked(true);
+                    box->button(QMessageBox::Yes)->click();
+                });
             }
         }
 

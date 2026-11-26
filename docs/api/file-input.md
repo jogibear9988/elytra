@@ -182,15 +182,16 @@ IndexedDB. The browser stores the selection in the browsing profile and
 binds the reference to the selecting origin. A restored handle initially
 needs permission. In a Window, call `requestPermission()` during a
 user gesture to approve reading. Pass `{ mode: 'readwrite' }` to request
-editing. The consent applies to the current document. Native paths stay
-inside the browser.
+editing. Select **Remember this permission** in the browser prompt to keep
+that decision for the origin and location. Otherwise the approval applies
+to the current document. A same-origin worker can use a handle whose
+permission has been remembered. Native paths stay inside the browser.
 
 ### Remaining compatibility
 
-Persistent permissions for native picker handles and private-browsing
-storage remain open. Windows has no native file-grant provider.
-Dedicated-worker paths are covered by the macOS fixture. Shared-worker,
-service-worker, and Linux runtime coverage remain open. The compatibility
+The native file-grant provider is verified on macOS. Windows support,
+private-browsing storage, native drag-and-drop handles, and runtime coverage
+for Linux, shared workers and service workers remain open. The compatibility
 surface is tracked against the
 [File System Standard](https://fs.spec.whatwg.org/) and the
 [File System Access draft](https://wicg.github.io/file-system-access/).
