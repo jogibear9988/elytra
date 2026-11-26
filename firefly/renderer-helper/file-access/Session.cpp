@@ -72,8 +72,12 @@ namespace {
             return;
         }
 
-        sweep();
-        if (pending->size() >= 128 || next_request == NumericLimits<u64>::max()) {
+        auto operation = metadata.get_string("operation"sv);
+        bool fire_and_forget = operation.has_value() && *operation == "release"sv;
+        if (!fire_and_forget)
+            sweep();
+        if ((!fire_and_forget && pending->size() >= 128)
+            || next_request == NumericLimits<u64>::max()) {
             complete(failure("QuotaExceededError"sv), {});
             return;
         }
@@ -87,9 +91,11 @@ namespace {
         auto& connection = page->file_access_connection();
         auto id = document.id();
         auto request = ++next_request;
-        pending->set(request,
-            { page->id(), id, document,
-                connection.make_weak_ptr<WebContent::ConnectionFromClient>(), move(complete) });
+        if (!fire_and_forget) {
+            pending->set(request,
+                { page->id(), id, document,
+                    connection.make_weak_ptr<WebContent::ConnectionFromClient>(), move(complete) });
+        }
 
         auto posted = connection.post_message(
             Messages::WebContentClient::FireflyFileAccessRequest(page->id().value(),

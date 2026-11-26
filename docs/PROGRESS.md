@@ -17518,6 +17518,24 @@ The native directory test uses a separate binding for its nested
 symlink fixture. This fixes a local duplicate declaration caught by the
 subsequent Release build. The existing directory fixture runtime passed.
 
+## Add origin-private storage for secure windows
+
+StorageManager.getDirectory now reaches the same capability broker through
+a separate storage operation. The browser derives the storage key from the
+current canonical environment and opens a private directory below the
+active profile. Native picker grants cannot enter that backing area.
+The broker bounds private storage to 64 MiB per origin, including staged
+writes. File snapshots now carry disk metadata and reject if the file
+changes during a read. Collected handles retire their native tokens, while
+an open writable stream keeps its file handle alive.
+
+The macOS Release build and hidden native and browser fixtures passed,
+including origin separation across two loopback origins, persistence
+across navigation, quota refusal, file modification time and MIME type,
+directory mutations, permissions, and writable stream commit and abort.
+Worker storage and synchronous access, structured cloning, durable native
+permissions, private browsing and the Windows provider remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

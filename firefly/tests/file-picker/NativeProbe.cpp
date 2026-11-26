@@ -307,6 +307,35 @@ int main(int argc, char** argv)
                 && QFileInfo::exists(outside) && !QFileInfo::exists(directory.filePath("nested")),
             "recursive removal unlinks the link and retains its target");
 
+        QTemporaryDir profile;
+        require(profile.isValid(), "prepare private native profile");
+        auto profile_dir = QFileInfo(profile.path()).canonicalFilePath();
+        auto profile_bytes = profile_dir.toUtf8();
+        auto private_area = profile_dir + "/ElytraOriginFiles";
+        auto private_bytes = private_area.toUtf8();
+        grants.set_private_area(
+            MUST(String::from_utf8(StringView(private_bytes.constData(), private_bytes.size()))));
+        auto bucket = grants.admit_private(
+            owner, StringView(profile_bytes.constData(), profile_bytes.size()), "fixture-bucket"sv);
+        require(!bucket.is_error() && bucket.value().name.is_empty(), "create origin-private root");
+        require(grants
+                    .admit(owner, StringView(private_bytes.constData(), private_bytes.size()),
+                        Grants::Kind::Directory, true)
+                    .is_error(),
+            "picker refuses a native path into the private backing area");
+        auto private_file
+            = grants.child(owner, bucket.value().token, "secret.txt"sv, Grants::Kind::File, true);
+        require(!private_file.is_error(), "create file within private bucket");
+        auto private_writer = grants.begin_write(owner, private_file.value().token, false);
+        require(!private_writer.is_error(), "create private writer");
+        require(grants.truncate(owner, private_writer.value(), 65 * 1024 * 1024).is_error(),
+            "private bucket quota blocks sparse growth");
+        require(!grants.finish_write(owner, private_writer.value(), false).is_error(),
+            "release private writer after quota failure");
+        require(!grants.remove(owner, bucket.value().token, "secret.txt"sv, false).is_error(),
+            "remove private test file");
+        grants.set_private_area({});
+
         auto save_path = directory.filePath("writable.txt");
         auto save_utf8 = save_path.toUtf8();
         auto save = grants.admit_save(owner, StringView(save_utf8.constData(), save_utf8.size()));

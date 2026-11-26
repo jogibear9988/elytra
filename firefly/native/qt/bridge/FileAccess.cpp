@@ -6,10 +6,17 @@
 #include <LibIPC/FireflyBootstrap.h>
 #include <LibWebCommon/MimeSniff/MimeType.h>
 #include <LibWebCommon/SecureContexts/AbstractOperations.h>
+#include <LibWebView/Application.h>
+#include <LibWebView/BrowsingSession.h>
 #include <LibWebView/CanonicalDocument.h>
+#include <LibWebView/CanonicalEnvironmentSettingsObject.h>
 #include <LibWebView/CanonicalTraversable.h>
+#include <LibWebView/CanonicalWindow.h>
+#include <LibWebView/Profile.h>
 #include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebContentPage.h>
+#include <QDir>
+#include <QFileInfo>
 #include <QMimeDatabase>
 #include <QStandardPaths>
 
@@ -259,10 +266,14 @@ namespace {
                 return grants.finish_write(reply.document, *token, operation == "closeWriter"sv);
             }();
 
-            if (result.is_error())
+            if (result.is_error()) {
+                if (operation.is_one_of("write"sv, "truncate"sv))
+                    (void)grants.finish_write(reply.document, *token, false);
                 reply.fail(result.error());
-            else
+            } else {
                 reply.send({});
+            }
+
             return;
         }
 
@@ -367,11 +378,42 @@ namespace {
                 return;
             }
 
+            auto before = grants.file_version(reply.document, *token);
+            if (before.is_error()) {
+                reply.fail(before.error());
+                return;
+            }
+
             auto result = grants.read(reply.document, *token, *offset, static_cast<size_t>(*count));
-            if (result.is_error())
+            if (result.is_error()) {
                 reply.fail(result.error());
-            else
-                reply.send({}, result.release_value());
+                return;
+            }
+
+            auto after = grants.file_version(reply.document, *token);
+            if (after.is_error() || after.value().fingerprint != before.value().fingerprint) {
+                reply.fail("NotReadableError"sv);
+                return;
+            }
+
+            JsonObject metadata;
+            auto revision = WebView::Profile::routing_identifier(
+                after.value().fingerprint.bytes_as_string_view());
+            metadata.set("revision"sv, revision.view());
+            metadata.set("lastModified"sv, after.value().last_modified);
+            if (*offset == 0) {
+                auto name = grants.name(reply.document, *token);
+                if (!name.is_error()) {
+                    auto mime = QMimeDatabase().mimeTypeForFile(
+                        qt_string(name.value()), QMimeDatabase::MatchExtension);
+                    if (mime.isValid() && !mime.isDefault()) {
+                        auto type = mime.name().toUtf8();
+                        metadata.set("type"sv, StringView(type.constData(), type.size()));
+                    }
+                }
+            }
+
+            reply.send(move(metadata), result.release_value());
             return;
         }
 
@@ -459,6 +501,51 @@ void Bridge::Impl::initialize_file_access()
         }
 
         auto& picker = *state.file_picker;
+        auto const& profile = WebView::Application::profile();
+        auto const& data_path = profile.paths().data;
+        auto canonical_data
+            = QFileInfo(QString::fromUtf8(data_path.characters(), data_path.length()))
+                  .canonicalFilePath();
+        if (canonical_data.isEmpty()) {
+            reply.fail("InvalidStateError"sv);
+            return;
+        }
+
+        auto private_path = QDir(canonical_data).filePath("ElytraOriginFiles").toUtf8();
+        auto private_area
+            = String::from_utf8(StringView(private_path.constData(), private_path.size()));
+        if (private_area.is_error()) {
+            reply.fail(private_area.error());
+            return;
+        }
+
+        picker.grants().set_private_area(private_area.release_value());
+        if (*operation == "getPrivateDirectory"sv) {
+            if (page->client().session().is_private() == WebView::IsPrivate::Yes) {
+                reply.fail("NotSupportedError"sv);
+                return;
+            }
+
+            auto document = page->hosted_document_with_id(reply.document);
+            auto const& settings = document->relevant_global_object().relevant_settings_object();
+            auto storage_key = WebView::obtain_a_storage_key(settings);
+            if (!storage_key.has_value()) {
+                reply.fail("SecurityError"sv);
+                return;
+            }
+
+            auto canonical_key = storage_key->to_string();
+            auto key = WebView::Profile::routing_identifier(canonical_key.bytes_as_string_view());
+            auto canonical_bytes = canonical_data.toUtf8();
+            auto root = picker.grants().admit_private(reply.document,
+                StringView(canonical_bytes.constData(), canonical_bytes.size()), key.view());
+            if (root.is_error())
+                reply.fail(root.error());
+            else
+                reply.send(handle_info(root.value()));
+            return;
+        }
+
         if (*operation == "requestPermission"sv) {
             auto token = options.get_string("token"sv);
             if (!token.has_value() || token->byte_count() != 36) {

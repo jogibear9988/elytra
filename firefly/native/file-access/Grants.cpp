@@ -1,10 +1,12 @@
 #include "Grants.h"
 
 #include <AK/ByteString.h>
+#include <AK/Function.h>
 #include <AK/LexicalPath.h>
 #include <AK/NumericLimits.h>
 #include <AK/Random.h>
 #include <AK/ScopeGuard.h>
+#include <AK/Time.h>
 #include <AK/Utf8View.h>
 #include <LibCore/System.h>
 #include <errno.h>
@@ -43,6 +45,17 @@ public:
     ByteString name;
 };
 
+struct FileAccessGrants::PrivateBucket : RefCounted<PrivateBucket> {
+    explicit PrivateBucket(NonnullOwnPtr<Core::File> directory)
+        : directory(move(directory))
+    {
+    }
+
+    ErrorOr<void> check_growth(u64 bytes) const;
+
+    NonnullOwnPtr<Core::File> directory;
+};
+
 struct FileAccessGrants::Writer {
     AK_ALLOC_WITH_KMALLOC;
 
@@ -52,6 +65,7 @@ public:
     NonnullOwnPtr<Core::File> parent;
     NonnullOwnPtr<Core::File> file;
     ByteString temporary_name;
+    RefPtr<PrivateBucket> private_bucket;
 
     ~Writer()
     {
@@ -74,12 +88,13 @@ bool FileAccessGrants::supported()
 #endif
 }
 
-ErrorOr<FileAccessGrants::Handle> FileAccessGrants::remember(
-    Document owner, StringView name, Kind kind, NonnullOwnPtr<Core::File> file, bool writable)
+ErrorOr<FileAccessGrants::Handle> FileAccessGrants::remember(Document owner, StringView name,
+    Kind kind, NonnullOwnPtr<Core::File> file, bool writable, RefPtr<PrivateBucket> bucket)
 {
     auto display_name = TRY(String::from_utf8(name));
     auto token = new_token();
-    TRY(m_entries.try_set(token, Entry { owner, kind, move(file), writable, false, display_name }));
+    TRY(m_entries.try_set(
+        token, Entry { owner, kind, move(file), writable, false, display_name, move(bucket) }));
     return Handle { move(token), move(display_name), kind };
 }
 
@@ -154,6 +169,7 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit(
     while (path.length() > 1 && path.ends_with('/'))
         path = path.substring_view(0, path.length() - 1);
     auto file = TRY(open_entry(AT_FDCWD, path, kind));
+    TRY(check_public_directory(file->fd()));
     return remember(
         owner, LexicalPath::basename(path), kind, move(file), writable && kind == Kind::Directory);
 #endif
@@ -178,19 +194,22 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_save(Document owner, S
         return Error::from_errno(EINVAL);
     auto parent_path = path.substring_view(0, max(separator, size_t { 1 }));
     auto parent = TRY(open_entry(AT_FDCWD, parent_path, Kind::Directory));
+    TRY(check_public_directory(parent->fd()));
     return admit_saved_file(owner, name, move(parent), true);
 #endif
 }
 
 #ifndef AK_OS_WINDOWS
-ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_saved_file(
-    Document owner, StringView name, NonnullOwnPtr<Core::File> parent, bool create)
+ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_saved_file(Document owner,
+    StringView name, NonnullOwnPtr<Core::File> parent, bool create, RefPtr<PrivateBucket> bucket)
 {
     auto target = TRY(adopt_nonnull_own_or_enomem(
         new (nothrow) SaveTarget { move(parent), ByteString { name } }));
 
     auto file = open_entry(target->parent->fd(), name, Kind::File);
     if (create && file.is_error() && file.error().is_errno() && file.error().code() == ENOENT) {
+        if (bucket)
+            TRY(bucket->check_growth(0));
         auto fd = openat(target->parent->fd(), target->name.characters(),
             O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
         if (fd < 0 && errno != EEXIST)
@@ -208,7 +227,7 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_saved_file(
     if (file.is_error())
         return file.release_error();
 
-    auto handle = TRY(remember(owner, name, Kind::File, file.release_value(), true));
+    auto handle = TRY(remember(owner, name, Kind::File, file.release_value(), true, move(bucket)));
     auto stored = m_save_targets.try_set(handle.token, move(target));
     if (stored.is_error()) {
         release(owner, handle.token);
@@ -271,6 +290,8 @@ ErrorOr<String> FileAccessGrants::begin_write(
         auto size = static_cast<u64>(original.st_size);
         if (size > max_initial_copy)
             return Error::from_errno(E2BIG);
+        if (entry->private_bucket)
+            TRY(entry->private_bucket->check_growth(size));
         for (u64 offset = 0; offset < size;) {
             auto bytes = TRY(read(owner, token, offset, min<u64>(max_read_size, size - offset)));
             if (bytes.is_empty())
@@ -280,7 +301,8 @@ ErrorOr<String> FileAccessGrants::begin_write(
         }
     }
 
-    auto* writer = new (nothrow) Writer { owner, token, move(parent), move(file), move(name) };
+    auto* writer = new (nothrow)
+        Writer { owner, token, move(parent), move(file), move(name), entry->private_bucket };
     if (!writer)
         return Error::from_errno(ENOMEM);
     unlink_on_error.disarm();
@@ -303,6 +325,13 @@ ErrorOr<void> FileAccessGrants::write(
     if (bytes.size() > max_read_size
         || offset > static_cast<u64>(NumericLimits<off_t>::max()) - bytes.size())
         return Error::from_errno(EINVAL);
+
+    if (writer->private_bucket && !bytes.is_empty()) {
+        auto size = static_cast<u64>(TRY(Core::System::fstat(writer->file->fd())).st_size);
+        auto end = offset + bytes.size();
+        if (end > size)
+            TRY(writer->private_bucket->check_growth(end - size));
+    }
 
     // Once a staged write fails, a later close must not publish a partial chunk.
     ArmedScopeGuard discard_on_error = [&] { m_writers.remove(token); };
@@ -333,6 +362,12 @@ ErrorOr<void> FileAccessGrants::truncate(Document owner, String const& token, u6
     auto writer = TRY(lookup_writer(owner, token));
     if (size > static_cast<u64>(NumericLimits<off_t>::max()))
         return Error::from_errno(EINVAL);
+    if (writer->private_bucket) {
+        auto current = static_cast<u64>(TRY(Core::System::fstat(writer->file->fd())).st_size);
+        if (size > current)
+            TRY(writer->private_bucket->check_growth(size - current));
+    }
+
     if (ftruncate(writer->file->fd(), static_cast<off_t>(size)) < 0) {
         auto error = Error::from_errno(errno);
         m_writers.remove(token);
@@ -418,7 +453,8 @@ static ErrorOr<String> descriptor_path(int fd)
 }
 
 static ErrorOr<void> remove_entry(int parent, char const* name, bool recursive, dev_t volume,
-    size_t remaining_depth, size_t& remaining_entries)
+    size_t remaining_depth, size_t& remaining_entries,
+    Function<ErrorOr<void>(int)> const& can_enter)
 {
     if (!remaining_depth || !remaining_entries)
         return Error::from_errno(E2BIG);
@@ -434,11 +470,18 @@ static ErrorOr<void> remove_entry(int parent, char const* name, bool recursive, 
         return Error::from_errno(EXDEV);
 
     bool directory = S_ISDIR(metadata.st_mode);
-    if (directory && recursive) {
+    if (directory) {
         auto file = TRY(open_entry(
             parent, StringView { name, strlen(name) }, FileAccessGrants::Kind::Directory));
         if (!identical(metadata, TRY(Core::System::fstat(file->fd()))))
             return Error::from_errno(EAGAIN);
+        TRY(can_enter(file->fd()));
+        if (!recursive) {
+            if (unlinkat(parent, name, AT_REMOVEDIR) < 0 && errno != ENOENT)
+                return Error::from_errno(errno);
+            return {};
+        }
+
         auto* stream = fdopendir(file->fd());
         if (!stream)
             return Error::from_errno(errno);
@@ -459,7 +502,7 @@ static ErrorOr<void> remove_entry(int parent, char const* name, bool recursive, 
             if (child.starts_with(".elytra-file-"sv))
                 return Error::from_errno(EBUSY);
             TRY(remove_entry(dirfd(stream), entry->d_name, true, volume, remaining_depth - 1,
-                remaining_entries));
+                remaining_entries, can_enter));
         }
 
         struct stat current {};
@@ -495,18 +538,31 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::child(
         return Error::from_errno(ENOSPC);
 
     auto fd = parent->descriptor->fd();
+    auto bucket = parent->private_bucket;
+    if (!bucket)
+        TRY(check_public_directory(fd));
     auto writable = parent->writable;
     if (writable && kind == Kind::File)
-        return admit_saved_file(owner, name, TRY(open_entry(fd, "."sv, Kind::Directory)), create);
+        return admit_saved_file(
+            owner, name, TRY(open_entry(fd, "."sv, Kind::Directory)), create, bucket);
 
     if (create) {
         auto basename = ByteString { name };
-        if (mkdirat(fd, basename.characters(), 0700) < 0 && errno != EEXIST)
-            return Error::from_errno(errno);
+        struct stat existing {};
+        if (fstatat(fd, basename.characters(), &existing, AT_SYMLINK_NOFOLLOW) < 0) {
+            if (errno != ENOENT)
+                return Error::from_errno(errno);
+            if (bucket)
+                TRY(bucket->check_growth(0));
+            if (mkdirat(fd, basename.characters(), 0700) < 0 && errno != EEXIST)
+                return Error::from_errno(errno);
+        }
     }
 
     auto file = TRY(open_entry(fd, name, kind));
-    return remember(owner, name, kind, move(file), writable);
+    if (!bucket)
+        TRY(check_public_directory(file->fd()));
+    return remember(owner, name, kind, move(file), writable, move(bucket));
 #endif
 }
 
@@ -530,7 +586,15 @@ ErrorOr<void> FileAccessGrants::remove(
     auto volume = TRY(Core::System::fstat(fd)).st_dev;
     auto basename = ByteString { name };
     size_t remaining_entries = 4096;
-    return remove_entry(fd, basename.characters(), recursive, volume, 64, remaining_entries);
+    Function<ErrorOr<void>(int)> can_enter = [&](int directory_fd) -> ErrorOr<void> {
+        if (directory->private_bucket)
+            return {};
+        return check_public_directory(directory_fd);
+    };
+
+    TRY(can_enter(fd));
+    return remove_entry(
+        fd, basename.characters(), recursive, volume, 64, remaining_entries, can_enter);
 #endif
 }
 
@@ -545,6 +609,8 @@ ErrorOr<bool> FileAccessGrants::is_same_entry(
 #else
     auto a = TRY(lookup(owner, left));
     auto b = TRY(lookup(owner, right));
+    if (static_cast<bool>(a->private_bucket) != static_cast<bool>(b->private_bucket))
+        return false;
     return identical(TRY(Core::System::fstat(a->descriptor->fd())),
         TRY(Core::System::fstat(b->descriptor->fd())));
 #endif
@@ -561,6 +627,9 @@ ErrorOr<Optional<Vector<String>>> FileAccessGrants::resolve(
 #else
     auto directory = TRY(lookup(owner, token, Kind::Directory));
     auto descendant = TRY(lookup(owner, descendant_token));
+    if (static_cast<bool>(directory->private_bucket)
+        != static_cast<bool>(descendant->private_bucket))
+        return Optional<Vector<String>> {};
     auto identity = TRY(Core::System::fstat(descendant->descriptor->fd()));
     if (identical(TRY(Core::System::fstat(directory->descriptor->fd())), identity))
         return Optional<Vector<String>> { Vector<String> {} };
@@ -597,6 +666,127 @@ ErrorOr<Optional<Vector<String>>> FileAccessGrants::resolve(
 #endif
 }
 
+#ifndef AK_OS_WINDOWS
+static ErrorOr<void> measure_bucket(
+    int fd, dev_t volume, size_t depth, size_t& allowance, u64& bytes)
+{
+    if (!depth)
+        return Error::from_errno(E2BIG);
+    auto directory = TRY(open_entry(fd, "."sv, FileAccessGrants::Kind::Directory));
+    auto* stream = fdopendir(directory->fd());
+    if (!stream)
+        return Error::from_errno(errno);
+    (void)directory->leak_fd();
+    ScopeGuard close = [&] { closedir(stream); };
+    for (;;) {
+        errno = 0;
+        auto* entry = readdir(stream);
+        if (!entry) {
+            if (errno)
+                return Error::from_errno(errno);
+            return {};
+        }
+
+        StringView name(entry->d_name, strlen(entry->d_name));
+        if (name.is_one_of("."sv, ".."sv))
+            continue;
+        if (!allowance)
+            return Error::from_errno(E2BIG);
+        --allowance;
+        struct stat metadata {};
+        if (fstatat(dirfd(stream), entry->d_name, &metadata, AT_SYMLINK_NOFOLLOW) < 0) {
+            if (errno == ENOENT)
+                continue;
+            return Error::from_errno(errno);
+        }
+
+        if (metadata.st_dev != volume)
+            return Error::from_errno(EXDEV);
+        if (S_ISDIR(metadata.st_mode)) {
+            auto child = open_entry(dirfd(stream), name, FileAccessGrants::Kind::Directory);
+            if (child.is_error())
+                return child.release_error();
+            if (!identical(metadata, TRY(Core::System::fstat(child.value()->fd()))))
+                return Error::from_errno(EAGAIN);
+            TRY(measure_bucket(child.value()->fd(), volume, depth - 1, allowance, bytes));
+        } else if (S_ISREG(metadata.st_mode)) {
+            auto size = static_cast<u64>(metadata.st_size);
+            if (size > bytes)
+                return Error::from_errno(ENOSPC);
+            bytes -= size;
+        }
+    }
+}
+
+ErrorOr<void> FileAccessGrants::PrivateBucket::check_growth(u64 growth) const
+{
+    constexpr u64 quota = 64 * 1024 * 1024;
+    if (growth > quota)
+        return Error::from_errno(ENOSPC);
+    auto bytes = quota - growth;
+    size_t entries = 4095;
+    auto volume = TRY(Core::System::fstat(directory->fd())).st_dev;
+    return measure_bucket(directory->fd(), volume, 64, entries, bytes);
+}
+
+static ErrorOr<NonnullOwnPtr<Core::File>> open_private_directory(int parent, StringView name)
+{
+    auto basename = ByteString { name };
+    if (mkdirat(parent, basename.characters(), 0700) < 0 && errno != EEXIST)
+        return Error::from_errno(errno);
+
+    auto directory = TRY(open_entry(parent, name, FileAccessGrants::Kind::Directory));
+    auto status = TRY(Core::System::fstat(directory->fd()));
+    if (status.st_uid != geteuid() || (status.st_mode & 0077))
+        return Error::from_errno(EACCES);
+    return directory;
+}
+#endif
+
+ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_private(
+    Document owner, StringView profile_data, StringView bucket_key)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)profile_data;
+    (void)bucket_key;
+    return Error::from_errno(ENOTSUP);
+#else
+    if (!is_entry_name(bucket_key) || m_entries.size() >= max_grants)
+        return Error::from_errno(ENOSPC);
+
+    auto profile = TRY(open_entry(AT_FDCWD, profile_data, Kind::Directory));
+    auto private_area = TRY(open_private_directory(profile->fd(), "ElytraOriginFiles"sv));
+    auto bucket_directory = TRY(open_private_directory(private_area->fd(), bucket_key));
+    auto duplicate = TRY(open_entry(bucket_directory->fd(), "."sv, Kind::Directory));
+    auto bucket = TRY(try_make_ref_counted<PrivateBucket>(move(duplicate)));
+    return remember(owner, ""sv, Kind::Directory, move(bucket_directory), true, move(bucket));
+#endif
+}
+
+bool FileAccessGrants::in_private_area(StringView path) const
+{
+    auto area = m_private_area.bytes_as_string_view();
+    return !area.is_empty()
+        && (path == area
+            || (path.starts_with(area) && path.length() > area.length()
+                && path[area.length()] == '/'));
+}
+
+ErrorOr<void> FileAccessGrants::check_public_directory(int fd) const
+{
+#ifdef AK_OS_WINDOWS
+    (void)fd;
+#else
+    if (!m_private_area.is_empty()) {
+        auto path = TRY(descriptor_path(fd));
+        if (in_private_area(path.bytes_as_string_view()))
+            return Error::from_errno(EACCES);
+    }
+#endif
+    return {};
+}
+
 ErrorOr<StringView> FileAccessGrants::permission(
     Document owner, String const& token, bool writable) const
 {
@@ -619,6 +809,8 @@ ErrorOr<String> FileAccessGrants::directory_hint(Document owner, String const& t
     return Error::from_errno(ENOTSUP);
 #else
     auto entry = TRY(lookup(owner, token));
+    if (entry->private_bucket)
+        return Error::from_errno(EACCES);
     auto path = TRY(descriptor_path(entry->descriptor->fd()));
     if (entry->kind == Kind::Directory)
         return path;
@@ -665,6 +857,30 @@ ErrorOr<void> FileAccessGrants::set_write_permission(
     entry.writable = true;
     entry.write_denied = false;
     return {};
+#endif
+}
+
+ErrorOr<FileAccessGrants::FileVersion> FileAccessGrants::file_version(
+    Document owner, String const& token) const
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto entry = TRY(lookup(owner, token, Kind::File));
+    auto status = TRY(Core::System::fstat(entry->descriptor->fd()));
+#ifdef AK_OS_MACOS
+    auto modified = status.st_mtimespec;
+    auto changed = status.st_ctimespec;
+#else
+    auto modified = status.st_mtim;
+    auto changed = status.st_ctim;
+#endif
+    auto fingerprint = TRY(String::formatted("{}:{}:{}:{}:{}:{}:{}", status.st_dev, status.st_ino,
+        status.st_size, modified.tv_sec, modified.tv_nsec, changed.tv_sec, changed.tv_nsec));
+    return FileVersion { move(fingerprint),
+        UnixDateTime::from_unix_timespec(modified).milliseconds_since_epoch() };
 #endif
 }
 
@@ -758,6 +974,10 @@ ErrorOr<FileAccessGrants::DirectoryPage> FileAccessGrants::next_entries(
     DirectoryPage page;
     TRY(page.entries.try_ensure_capacity(count));
     auto* stream = it->value->stream;
+    String public_directory;
+    if (!m_private_area.is_empty()
+        && !TRY(lookup(owner, it->value->directory_token))->private_bucket)
+        public_directory = TRY(descriptor_path(dirfd(stream)));
     // On a hard error retire this cursor rather than retrying after consuming entries.
     ArmedScopeGuard retire = [&] { m_cursors.remove(it); };
     for (size_t scans = 0; scans < max_scans_per_page && page.entries.size() < count; ++scans) {
@@ -773,6 +993,13 @@ ErrorOr<FileAccessGrants::DirectoryPage> FileAccessGrants::next_entries(
         StringView name(entry->d_name, strlen(entry->d_name));
         if (!is_entry_name(name))
             continue;
+        if (!public_directory.is_empty()) {
+            auto path = TRY(String::formatted(
+                "{}{}{}", public_directory, public_directory.ends_with('/') ? ""sv : "/"sv, name));
+            if (in_private_area(path.bytes_as_string_view()))
+                continue;
+        }
+
         struct stat metadata {};
         if (fstatat(dirfd(stream), entry->d_name, &metadata, AT_SYMLINK_NOFOLLOW) < 0) {
             if (errno == ENOENT)

@@ -19,7 +19,9 @@ const operations = [
       startIn: 'documents',
     });
     check(handle instanceof FileSystemFileHandle && handle.kind === 'file', 'open handle type');
-    check(handle.name === 'selected.txt' && await (await handle.getFile()).text() === 'original', 'selected file bytes');
+    const file = await handle.getFile();
+    check(handle.name === 'selected.txt' && await file.text() === 'original', 'selected file bytes');
+    check(file.lastModified === 1700000000000 && file.type === 'text/plain', 'selected file metadata');
     let denied = false;
     try { await handle.createWritable(); } catch (error) { denied = error.name === 'NotAllowedError'; }
     check(denied, 'read grant cannot write');
@@ -114,6 +116,21 @@ const operations = [
 let step = 0;
 try {
   check(isSecureContext, 'secure fixture origin');
+  const privateRoot = await navigator.storage.getDirectory();
+  check(privateRoot instanceof FileSystemDirectoryHandle && privateRoot.name === '', 'origin-private root');
+  const privateFile = await privateRoot.getFileHandle('private.txt', { create: true });
+  const privateStream = await privateFile.createWritable();
+  await privateStream.write('private contents');
+  await privateStream.close();
+  let quota = false;
+  const large = await privateFile.createWritable();
+  try { await large.truncate(65 * 1024 * 1024); }
+  catch (error) { quota = error.name === 'QuotaExceededError'; }
+  check(quota, 'origin-private quota');
+  const recheck = await privateFile.createWritable({ keepExistingData: true });
+  await recheck.close();
+  check(await (await privateFile.getFile()).text() === 'private contents', 'quota failure retains file');
+
   const chunks = [];
   const plain = new WritableStream({ write: (chunk) => chunks.push(chunk) });
   const writer = new WritableStreamDefaultWriter(plain);
@@ -143,14 +160,30 @@ try {
 }
 </script>`;
 
+const reloaded = `<!doctype html><title>CHECKING</title><script type="module">
+try {
+  const directory = await navigator.storage.getDirectory();
+  const file = await directory.getFileHandle('private.txt');
+  document.title = await (await file.getFile()).text() === 'private contents' ? 'PASS_RELOAD' : 'FAIL:wrong file contents';
+} catch (error) {
+  document.title = error.name === 'NotFoundError' ? 'PASS_ISOLATED' : 'FAIL:' + error.name;
+}
+</script>`;
+
+const otherOrigin = createServer((_request, response) => {
+  response.setHeader('content-type', 'text/html');
+  response.setHeader('connection', 'close');
+  response.end(reloaded);
+});
+
 const server = createServer((request, response) => {
   response.setHeader('connection', 'close');
-  if (request.url !== '/') {
+  if (request.url !== '/' && request.url !== '/reload') {
     response.writeHead(404).end();
     return;
   }
   response.setHeader('content-type', 'text/html');
-  response.end(source);
+  response.end(request.url === '/reload' ? reloaded : source);
 });
 let window;
 try {
@@ -175,6 +208,26 @@ try {
   if (readFileSync(process.env.ELYTRA_TEST_OPEN_FILE, 'utf8') !== 'modified with permission') {
     throw Error('Permission escalation did not authorize the selected file write');
   }
+
+  async function expectStorageTitle(url, expected) {
+    await window.loadURL(url);
+    for (let i = 0; i < 500; ++i) {
+      const observed = window.webContents.getTitle();
+      if (observed === expected) {
+        return;
+      }
+      if (observed.startsWith('FAIL:')) {
+        throw Error(observed);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    throw Error(`Storage check expected ${expected}, got ${window.webContents.getTitle()}`);
+  }
+
+  await expectStorageTitle(`http://127.0.0.1:${server.address().port}/reload`, 'PASS_RELOAD');
+  await new Promise((resolve) => otherOrigin.listen(0, '127.0.0.1', resolve));
+  await expectStorageTitle(`http://127.0.0.1:${otherOrigin.address().port}/`, 'PASS_ISOLATED');
+  await new Promise((resolve) => otherOrigin.close(resolve));
   console.log('PASS File System Access WebIDL, native picker IPC, streams and on-disk commit');
   window.destroy();
   await new Promise((resolve) => server.close(resolve));
@@ -183,5 +236,6 @@ try {
   console.error(error);
   window?.destroy();
   server.close();
+  otherOrigin.close();
   app.exit(1);
 }

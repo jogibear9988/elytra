@@ -1,3 +1,42 @@
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_manager.rs b/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_manager.rs
+index ab6cf5e77de..a12c574353d 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_manager.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_manager.rs
+@@ -8,6 +8,8 @@
+ 
+ //! StorageManager, https://storage.spec.whatwg.org/#storagemanager
+ 
++use core::ffi::c_void;
++
+ use libjs_rust::api::{Gc, Object, PropertyKey, Realm, Trace, Value, Vm};
+ 
+ use crate::bindings::conversions::ToJs;
+@@ -18,7 +20,7 @@ use crate::bindings::interface::{
+     with_temporary_execution_context_and_callbacks,
+ };
+ use crate::bindings::promise::{
+-    TaskSource, WebIdlPromise, create_promise, in_parallel, promise_realm, queue_a_global_task,
++    TaskSource, WebIdlPromise, create_promise, in_parallel, promise_from_abi, promise_realm, queue_a_global_task,
+     reject_promise_with_exception, resolve_promise,
+ };
+ use crate::bindings::{CallContext, Exception, WebIdlResult};
+@@ -50,7 +52,16 @@ fn queue_a_storage_task<C: Trace + Copy + 'static>(vm: &Vm, global: Gc<Object>,
+     queue_a_global_task(vm, global, TaskSource::Storage, captures, steps);
+ }
+ 
++unsafe extern "C" {
++    fn web_storage_api_get_directory(realm: *mut c_void) -> *mut c_void;
++}
++
+ impl StorageManager {
++    pub(crate) fn get_directory(&self, _: &mut CallContext) -> WebIdlResult<WebIdlPromise> {
++        // SAFETY: The stored realm is a live realm. LibWeb returns a live promise capability.
++        Ok(unsafe { promise_from_abi(web_storage_api_get_directory(self.realm.as_ptr().cast())) })
++    }
++
+     pub(crate) fn create(vm: &Vm, realm: Gc<Realm>) -> Ref<StorageManager> {
+         allocate(vm, |_| StorageManager { realm })
+     }
 diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs
 index d99bebc362f..3b1471ea6a2 100644
 --- a/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs
@@ -726,10 +765,10 @@ index 00000000000..0ea6fd778b3
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
 new file mode 100644
-index 00000000000..1332eb9eea3
+index 00000000000..d19fe8ecec3
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,75 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -737,6 +776,7 @@ index 00000000000..1332eb9eea3
 +#pragma once
 +
 +#include <AK/JsonObject.h>
++#include <LibGC/Weak.h>
 +#include <LibWeb/Bindings/FileSystemHandle.h>
 +#include <LibWeb/Bindings/Wrappable.h>
 +#include <LibWeb/WebIDL/Promise.h>
@@ -780,6 +820,7 @@ index 00000000000..1332eb9eea3
 +    FileSystemHandle(DOM::Document&, String, Utf16String, Bindings::FileSystemHandleKind);
 +
 +    virtual void visit_edges(GC::Cell::Visitor&) override;
++    virtual void finalize() override;
 +
 +    DOM::Document& document() const
 +    {
@@ -796,6 +837,7 @@ index 00000000000..1332eb9eea3
 +        Bindings::FileSystemHandlePermissionDescriptor const&, GC::Ref<WebIDL::Promise>);
 +
 +    GC::Ref<DOM::Document> m_document;
++    GC::Weak<DOM::Document> m_weak_document;
 +    String m_token;
 +    Utf16String m_name;
 +    Bindings::FileSystemHandleKind m_kind;
@@ -857,15 +899,16 @@ index 00000000000..3ec81472887
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/Handles.cpp b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
 new file mode 100644
-index 00000000000..ce479a51217
+index 00000000000..620eec00603
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
-@@ -0,0 +1,274 @@
+@@ -0,0 +1,319 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
 +
 +#include <AK/JsonArray.h>
++#include <LibCore/EventLoop.h>
 +#include <LibGC/Heap.h>
 +#include <LibGC/Root.h>
 +#include <LibGC/RootVector.h>
@@ -890,6 +933,7 @@ index 00000000000..ce479a51217
 +FileSystemHandle::FileSystemHandle(
 +    DOM::Document& document, String token, Utf16String name, Bindings::FileSystemHandleKind kind)
 +    : m_document(document)
++    , m_weak_document(document)
 +    , m_token(move(token))
 +    , m_name(move(name))
 +    , m_kind(kind)
@@ -900,6 +944,25 @@ index 00000000000..ce479a51217
 +{
 +    Base::visit_edges(visitor);
 +    visitor.visit(m_document);
++}
++
++void FileSystemHandle::finalize()
++{
++    // GC finalization cannot enter the JavaScript VM or create new roots.
++    // Drop native leases from the event loop while the document is still live.
++    if (Core::EventLoop::is_running()) {
++        Core::deferred_invoke([document = move(m_weak_document), token = move(m_token)] {
++            auto target = document.ptr();
++            if (!target || !target->is_fully_active())
++                return;
++
++            JsonObject options;
++            options.set("operation"sv, "release"sv);
++            options.set("token"sv, token);
++            request(*target, move(options), [](JsonObject, ByteBuffer) { });
++        });
++    }
++    Base::finalize();
 +}
 +
 +GC::Ptr<FileSystemHandle> FileSystemHandle::from_grant(
@@ -931,35 +994,59 @@ index 00000000000..ce479a51217
 +{
 +}
 +
++struct FileSnapshot {
++    ByteBuffer contents;
++    Optional<String> revision;
++    Utf16String type;
++    i64 last_modified { 0 };
++};
++
 +static void read_file(GC::Root<FileSystemFileHandle> handle, DOM::Document& document, String token,
-+    GC::Root<WebIDL::Promise> promise, ByteBuffer contents)
++    GC::Root<WebIDL::Promise> promise, FileSnapshot snapshot)
 +{
 +    constexpr size_t chunk_size = 256 * 1024;
 +    constexpr size_t maximum_file_size = 16 * 1024 * 1024;
 +    JsonObject options;
 +    options.set("operation"sv, "read"sv);
 +    options.set("token"sv, token);
-+    options.set("offset"sv, static_cast<u64>(contents.size()));
++    options.set("offset"sv, static_cast<u64>(snapshot.contents.size()));
 +    options.set("count"sv, static_cast<u64>(chunk_size));
 +    request(document, move(options),
 +        [handle = move(handle), &document, token = move(token), promise = move(promise),
-+            contents = move(contents)](JsonObject result, ByteBuffer bytes) mutable {
++            snapshot = move(snapshot)](JsonObject result, ByteBuffer bytes) mutable {
 +            if (reject_if_failed(*promise, result))
 +                return;
-+            if (bytes.size() > chunk_size || contents.size() + bytes.size() > maximum_file_size
-+                || contents.try_append(bytes.bytes()).is_error()) {
++            auto revision = result.get_string("revision"sv);
++            auto modified = result.get_i64("lastModified"sv);
++            if (!revision.has_value() || !modified.has_value()
++                || (snapshot.revision.has_value() && *snapshot.revision != *revision)) {
++                reject(*promise, "NotReadableError"sv);
++                return;
++            }
++
++            if (!snapshot.revision.has_value()) {
++                snapshot.revision = *revision;
++                snapshot.last_modified = *modified;
++                if (auto type = result.get_string("type"sv); type.has_value())
++                    snapshot.type = Utf16String::from_utf8(*type);
++            }
++
++            if (bytes.size() > chunk_size
++                || snapshot.contents.size() + bytes.size() > maximum_file_size
++                || snapshot.contents.try_append(bytes.bytes()).is_error()) {
 +                reject(*promise, "QuotaExceededError"sv);
 +                return;
 +            }
 +
 +            if (bytes.size() == chunk_size) {
-+                read_file(move(handle), document, move(token), move(promise), move(contents));
++                read_file(move(handle), document, move(token), move(promise), move(snapshot));
 +                return;
 +            }
 +
 +            auto& realm = WebIDL::promise_realm(*promise);
 +            HTML::TemporaryExecutionContext context(realm);
-+            auto file = FileAPI::File::create(contents.bytes(), handle->name(), {});
++            auto file = FileAPI::File::create(snapshot.contents.bytes(), handle->name(),
++                move(snapshot.type), snapshot.last_modified);
 +            WebIDL::resolve_promise(
 +                *promise, Bindings::wrap(Bindings::host_defined_wrapper_world(realm), realm, file));
 +        });
@@ -1478,10 +1565,10 @@ index 00000000000..e81b0834d91
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/Writable.cpp b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
 new file mode 100644
-index 00000000000..93f13d479d9
+index 00000000000..6a57599c83a
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
-@@ -0,0 +1,254 @@
+@@ -0,0 +1,257 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -1502,9 +1589,9 @@ index 00000000000..93f13d479d9
 +#include <LibWeb/DOM/Document.h>
 +#include <LibWeb/FileAPI/Blob.h>
 +#include <LibWeb/FileSystemAccess/FileSystemFileHandle.h>
-+#include <LibWeb/Streams/FileSystemWritableFileStream.h>
 +#include <LibWeb/FileSystemAccess/Provider.h>
 +#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
++#include <LibWeb/Streams/FileSystemWritableFileStream.h>
 +#include <LibWeb/WebIDL/AbstractOperations.h>
 +
 +namespace Web::FileSystemAccess {
@@ -1516,8 +1603,9 @@ index 00000000000..93f13d479d9
 +    GC_DECLARE_ALLOCATOR(WriteSession);
 +
 +public:
-+    WriteSession(DOM::Document& document, String token)
++    WriteSession(DOM::Document& document, FileSystemFileHandle& handle, String token)
 +        : m_document(document)
++        , m_handle(handle)
 +        , m_token(move(token))
 +    {
 +    }
@@ -1530,12 +1618,14 @@ index 00000000000..93f13d479d9
 +    {
 +        Base::visit_edges(visitor);
 +        visitor.visit(m_document);
++        visitor.visit(m_handle);
 +    }
 +
 +    void send(JsonObject, GC::Ref<WebIDL::Promise>, ReadonlyBytes = {});
 +    void write_bytes(GC::Root<WebIDL::Promise>, ByteBuffer, size_t written);
 +
 +    GC::Ref<DOM::Document> m_document;
++    GC::Ref<FileSystemFileHandle> m_handle;
 +    String m_token;
 +    u64 m_position { 0 };
 +};
@@ -1686,8 +1776,8 @@ index 00000000000..93f13d479d9
 +    metadata.set("token"sv, token());
 +    metadata.set("keepExistingData"sv, options.keep_existing_data);
 +    request(document(), move(metadata),
-+        [document = GC::Root { document() }, promise = GC::Root { promise }](
-+            JsonObject result, ByteBuffer) {
++        [document = GC::Root { document() }, handle = GC::Root { *this },
++            promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
 +            if (reject_if_failed(*promise, result))
 +                return;
 +
@@ -1700,7 +1790,7 @@ index 00000000000..93f13d479d9
 +            auto& realm = WebIDL::promise_realm(*promise);
 +            HTML::TemporaryExecutionContext context(
 +                realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes);
-+            GC::Root session { realm.heap().allocate<WriteSession>(*document, *writer) };
++            GC::Root session { realm.heap().allocate<WriteSession>(*document, *handle, *writer) };
 +            auto sink = JS::Object::create(realm, nullptr);
 +            auto write = GC::create_function<JS::ThrowCompletionOr<JS::Value>(JS::VM&)>(
 +                realm.heap(), GC::captures(GC::Ref { *session }),
@@ -1769,6 +1859,94 @@ index d19afde0707..f7a672f3b46 100644
  Window includes AnimationFrameProvider;
  Window includes GlobalEventHandlers;
  Window includes WindowEventHandlers;
+diff --git a/Libraries/LibWeb/StorageAPI/StorageManager.cpp b/Libraries/LibWeb/StorageAPI/StorageManager.cpp
+index f49393af721..0c008834ae2 100644
+--- a/Libraries/LibWeb/StorageAPI/StorageManager.cpp
++++ b/Libraries/LibWeb/StorageAPI/StorageManager.cpp
+@@ -6,12 +6,18 @@
+  * SPDX-License-Identifier: BSD-2-Clause
+  */
+ 
++#include <LibGC/Root.h>
+ #include <LibJS/HostClassBuilder.h>
+ #include <LibJS/Runtime/Realm.h>
++#include <LibWeb/Bindings/WrapperWorld.h>
++#include <LibWeb/DOM/Document.h>
++#include <LibWeb/FileSystemAccess/FileSystemHandle.h>
++#include <LibWeb/FileSystemAccess/Provider.h>
+ #include <LibWeb/HTML/Scripting/Environments.h>
+ #include <LibWeb/HTML/Window.h>
+ #include <LibWeb/Page/Page.h>
+ #include <LibWeb/StorageAPI/StorageManager.h>
++#include <LibWeb/WebIDL/Promise.h>
+ 
+ namespace Web::StorageAPI {
+ 
+@@ -22,11 +28,13 @@ void* web_rust_storage_api_create_storage_manager(JSVM*, void* realm);
+ 
+ // Declared on the Rust side in Bindings/Rust/src/storage_api/storage_shelf.rs.
+ u64 web_storage_api_storage_usage(HTML::EnvironmentSettingsObject*);
++void* web_storage_api_get_directory(void* realm);
+ }
+ 
+ GC::Ref<StorageManager> StorageManager::create(JS::Realm& realm)
+ {
+-    return *static_cast<StorageManager*>(web_rust_storage_api_create_storage_manager(JS::HostABI::vm_to_abi(realm.vm()), &realm));
++    return *static_cast<StorageManager*>(
++        web_rust_storage_api_create_storage_manager(JS::HostABI::vm_to_abi(realm.vm()), &realm));
+ }
+ 
+ u64 web_storage_api_storage_usage(HTML::EnvironmentSettingsObject* environment)
+@@ -36,4 +44,37 @@ u64 web_storage_api_storage_usage(HTML::EnvironmentSettingsObject* environment)
+     return window.page().client().page_did_request_storage_usage(environment->id);
+ }
+ 
++void* web_storage_api_get_directory(void* raw_realm)
++{
++    auto& realm = *static_cast<JS::Realm*>(raw_realm);
++    auto promise = WebIDL::create_promise(realm);
++    auto* window = HTML::window_from_global_object(realm.global_object());
++    if (!window || !window->associated_document().is_fully_active()) {
++        FileSystemAccess::reject(*promise, "InvalidStateError"sv);
++        return promise.ptr();
++    }
++
++    auto& document = window->associated_document();
++    JsonObject request;
++    request.set("operation"sv, "getPrivateDirectory"sv);
++    FileSystemAccess::request(document, move(request),
++        [document = GC::Root { document }, promise = GC::Root { promise }](
++            JsonObject result, ByteBuffer) {
++            if (FileSystemAccess::reject_if_failed(*promise, result))
++                return;
++
++            auto handle = FileSystemAccess::FileSystemHandle::from_grant(*document, result);
++            if (!handle || handle->kind() != Bindings::FileSystemHandleKind::Directory) {
++                FileSystemAccess::reject(*promise, "UnknownError"sv);
++                return;
++            }
++
++            auto& realm = WebIDL::promise_realm(*promise);
++            WebIDL::resolve_promise(*promise,
++                Bindings::wrap(
++                    Bindings::host_defined_wrapper_world(realm), realm, GC::Ref { *handle }));
++        });
++    return promise.ptr();
++}
++
+ }
+diff --git a/Libraries/LibWeb/StorageAPI/StorageManager.idl b/Libraries/LibWeb/StorageAPI/StorageManager.idl
+index 54bca5897e5..6020b14da58 100644
+--- a/Libraries/LibWeb/StorageAPI/StorageManager.idl
++++ b/Libraries/LibWeb/StorageAPI/StorageManager.idl
+@@ -2,6 +2,7 @@
+ [SecureContext, Exposed=(Window,Worker), ImplementedIn=Rust]
+ interface StorageManager {
+     [FIXME] Promise<boolean> persisted();
++    [Exposed=Window] Promise<FileSystemDirectoryHandle> getDirectory();
+     [FIXME, Exposed=Window] Promise<boolean> persist();
+ 
+     // FIXME: This should also be exposed to Workers
 diff --git a/Libraries/LibWeb/Streams/FileSystemWritableFileStream.h b/Libraries/LibWeb/Streams/FileSystemWritableFileStream.h
 new file mode 100644
 index 00000000000..e5a00ce210c

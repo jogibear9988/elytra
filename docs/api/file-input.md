@@ -119,7 +119,7 @@ saveButton.addEventListener('click', async () => {
 | `showDirectoryPicker()` | Read access by default. Pass `{ mode: 'readwrite' }` to select a folder for editing. |
 | `FileSystemDirectoryHandle` | Async iteration with `entries()`, `keys()`, `values()`, and `for await…of`. Use `getFileHandle()` and `getDirectoryHandle()` with `{ create: true }` on writable folders. `removeEntry()` supports recursive removal. `resolve()` returns an array of relative components or `null`. |
 | `FileSystemHandle` | Use `isSameEntry()` to compare native entries. `queryPermission()` reports the current permission and `requestPermission()` can prompt for write access after a user gesture. |
-| `FileSystemFileHandle.getFile()` | A snapshot of up to 16 MiB. |
+| `FileSystemFileHandle.getFile()` | A snapshot of up to 16 MiB with the file’s modification time and media type when recognized. A concurrent change can reject the snapshot. |
 | `FileSystemFileHandle.createWritable()` | Writable handles support `write()`, `seek()`, `truncate()`, `close()`, `abort()`, and writer-based writes. `keepExistingData` copies up to 16 MiB. One writer can be open per handle. |
 
 The browser retains the native paths and grants. Navigation retires grants
@@ -131,8 +131,16 @@ origin and picker ID until the view closes. Write grants are document-scoped.
 Recursive removal stays on the selected filesystem and has a depth and entry
 limit.
 
-Persistent permissions, structured cloning, origin-private storage, and
-synchronous worker handles remain open. Windows has no native
-file-grant provider. The compatibility surface is tracked against the
+### Origin-private storage
+
+In a secure same-origin window, `await navigator.storage.getDirectory()`
+returns the writable root for that origin and browsing profile without a
+picker. The root persists across navigation. Different origins use separate
+roots. Native picker grants cannot enter the private backing directory.
+The current limit is 64 MiB per origin, including staged writes.
+
+Persistent permissions for native picks, structured cloning, private
+browsing storage, worker access, and synchronous worker handles remain open.
+Windows has no native file-grant provider. The compatibility surface is tracked against the
 [File System Standard](https://fs.spec.whatwg.org/) and the
 [File System Access draft](https://wicg.github.io/file-system-access/).

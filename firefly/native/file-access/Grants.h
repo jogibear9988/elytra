@@ -3,6 +3,7 @@
 
 #include <AK/ByteBuffer.h>
 #include <AK/HashMap.h>
+#include <AK/RefPtr.h>
 #include <AK/String.h>
 #include <AK/Vector.h>
 #include <LibCore/File.h>
@@ -47,6 +48,13 @@ public:
 
     ErrorOr<Handle> admit_save(Document, StringView absolute_path);
 
+    ErrorOr<Handle> admit_private(Document, StringView profile_data, StringView bucket_key);
+
+    void set_private_area(String directory)
+    {
+        m_private_area = move(directory);
+    }
+
     ErrorOr<String> begin_write(Document, String const& token, bool keep_existing_data);
 
     ErrorOr<void> write(Document, String const& writer, u64 offset, ReadonlyBytes);
@@ -73,6 +81,13 @@ public:
 
     ErrorOr<void> set_write_permission(Document, String const& token, bool granted);
 
+    struct FileVersion {
+        String fingerprint;
+        i64 last_modified;
+    };
+
+    ErrorOr<FileVersion> file_version(Document, String const& token) const;
+
     ErrorOr<ByteBuffer> read(Document, String const& token, u64 offset, size_t count) const;
 
     ErrorOr<String> begin_iteration(Document, String const& directory_token);
@@ -86,6 +101,8 @@ public:
     void revoke_all();
 
 private:
+    struct PrivateBucket;
+
     struct Entry {
         Document owner;
         Kind kind;
@@ -93,6 +110,7 @@ private:
         bool writable;
         bool write_denied { false };
         String name;
+        RefPtr<PrivateBucket> private_bucket;
     };
 
     struct Cursor;
@@ -101,11 +119,11 @@ private:
     static constexpr size_t max_cursors = 32;
     static constexpr size_t max_scans_per_page = 256;
 
-    ErrorOr<Handle> remember(
-        Document, StringView name, Kind, NonnullOwnPtr<Core::File>, bool writable = false);
+    ErrorOr<Handle> remember(Document, StringView name, Kind, NonnullOwnPtr<Core::File>,
+        bool writable = false, RefPtr<PrivateBucket> = {});
 
-    ErrorOr<Handle> admit_saved_file(
-        Document, StringView name, NonnullOwnPtr<Core::File> parent, bool create);
+    ErrorOr<Handle> admit_saved_file(Document, StringView name, NonnullOwnPtr<Core::File> parent,
+        bool create, RefPtr<PrivateBucket> = {});
 
     ErrorOr<Entry const*> lookup(Document, String const& token) const;
 
@@ -114,6 +132,12 @@ private:
     ErrorOr<Entry const*> lookup(Document, String const& token, Kind) const;
 
     String new_token() const;
+
+    ErrorOr<void> check_public_directory(int fd) const;
+
+    bool in_private_area(StringView path) const;
+
+    String m_private_area;
 
     HashMap<String, Entry> m_entries;
     HashMap<String, NonnullOwnPtr<SaveTarget>> m_save_targets;
