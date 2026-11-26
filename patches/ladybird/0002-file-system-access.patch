@@ -1,14 +1,385 @@
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs
+index d99bebc362f..3b1471ea6a2 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs
+@@ -528,7 +528,7 @@ pub unsafe extern "C" fn web_rust_readable_stream_default_reader_closed_promise_
+ pub unsafe extern "C" fn web_rust_writable_stream_create(vm: *mut c_void, realm: *mut c_void) -> *mut c_void {
+     // SAFETY: The caller passes the VM and a live realm.
+     let (vm, realm) = unsafe { realm_arguments(vm, realm) };
+-    cell_into_abi(allocate(vm, |defer_gc| WritableStream::new(defer_gc, realm)))
++    cell_into_abi(WritableStream::create(vm, realm))
+ }
+ 
+ /// Sets the stream up with the writeAlgorithm that C++ gives, https://streams.spec.whatwg.org/#writablestream-set-up
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/file_system_writable_file_stream.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/file_system_writable_file_stream.rs
+new file mode 100644
+index 00000000000..bf2adcb41e4
+--- /dev/null
++++ b/Libraries/LibWeb/Bindings/Rust/src/streams/file_system_writable_file_stream.rs
+@@ -0,0 +1,85 @@
++// SPDX-License-Identifier: BSD-2-Clause
++
++use core::ffi::c_void;
++
++use libjs_rust::api::{Object, PrimitiveString, PropertyKey, Trace, Value};
++
++use crate::bindings::interface::{Inherits, Ref, Wrappable, allocate, cell_into_abi, realm_arguments};
++use crate::bindings::promise::WebIdlPromise;
++use crate::bindings::{CallContext, WebIdlResult};
++use crate::streams::writable_stream::WritableStream;
++use crate::streams::writable_stream_default_writer::WritableStreamDefaultWriter;
++
++#[derive(Trace)]
++#[gc(crate = libjs_rust)]
++pub(crate) struct FileSystemWritableFileStream {
++    stream: Ref<WritableStream>,
++}
++
++impl Wrappable for FileSystemWritableFileStream {}
++
++impl Inherits<WritableStream> for FileSystemWritableFileStream {
++    fn parent(&self) -> &WritableStream {
++        &self.stream
++    }
++}
++
++impl FileSystemWritableFileStream {
++    pub(crate) fn stream(&self) -> Ref<WritableStream> {
++        self.stream
++    }
++
++    pub(crate) fn write(this: &Ref<Self>, cx: &mut CallContext, data: Value) -> WebIdlResult<WebIdlPromise> {
++        let writer = WritableStream::get_writer(&this.stream, cx)?;
++        let result = WritableStreamDefaultWriter::write(&writer, cx, Some(data));
++        WritableStreamDefaultWriter::release_lock(&writer, cx)?;
++        result
++    }
++
++    pub(crate) fn seek(this: &Ref<Self>, cx: &mut CallContext, position: u64) -> WebIdlResult<WebIdlPromise> {
++        Self::command(this, cx, b"seek", "position", position)
++    }
++
++    pub(crate) fn truncate(this: &Ref<Self>, cx: &mut CallContext, size: u64) -> WebIdlResult<WebIdlPromise> {
++        Self::command(this, cx, b"truncate", "size", size)
++    }
++
++    fn command(
++        this: &Ref<Self>,
++        cx: &mut CallContext,
++        kind: &[u8],
++        field: &str,
++        value: u64,
++    ) -> WebIdlResult<WebIdlPromise> {
++        let vm = cx.vm();
++        let command = Object::create(vm, cx.realm(), None);
++        let kind = Value::from_string(PrimitiveString::create_from_ascii(vm, kind));
++        command.create_data_property(vm, &vm.names.type_, kind, None, None)?;
++        command.create_data_property(
++            vm,
++            &PropertyKey::from_utf8(field),
++            Value::from_f64(value as f64),
++            None,
++            None,
++        )?;
++        Self::write(this, cx, Value::from_object(command))
++    }
++}
++
++// SAFETY: The caller passes the VM, a live realm, and a JS object in that realm with the three internal sink callbacks.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn web_rust_file_system_writable_file_stream_create(
++    vm: *mut c_void,
++    realm: *mut c_void,
++    sink: u64,
++) -> *mut c_void {
++    let (vm, realm) = unsafe { realm_arguments(vm, realm) };
++    let sink = unsafe { Value::from_raw(sink) };
++    let stream = WritableStream::create(vm, realm);
++    let cx = CallContext::new(vm, realm);
++    if WritableStream::set_up_using_sink(stream, &cx, sink).is_err() {
++        return core::ptr::null_mut();
++    }
++    let stream = allocate(vm, |_| FileSystemWritableFileStream { stream });
++    cell_into_abi(stream)
++}
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/mod.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/mod.rs
+index 55ebf752aa5..9a4dc9a6174 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/streams/mod.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/streams/mod.rs
+@@ -21,6 +21,8 @@ pub(crate) mod cross_realm_transform;
+ #[cfg(not(test))]
+ pub(crate) mod exports;
+ #[cfg(not(test))]
++pub(crate) mod file_system_writable_file_stream;
++#[cfg(not(test))]
+ pub(crate) mod generic_transform_stream;
+ #[cfg(not(test))]
+ pub(crate) mod queue_with_sizes;
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/readable_stream.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/readable_stream.rs
+index eb597450acb..6d771ead2cf 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/streams/readable_stream.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/streams/readable_stream.rs
+@@ -56,7 +56,7 @@ use crate::streams::readable_stream_pipe_to::readable_stream_pipe_to;
+ use crate::streams::readable_stream_tee::readable_stream_tee;
+ use crate::streams::transform_stream::TransformStream;
+ use crate::streams::underlying_source::{ReadableStreamController, ReadableStreamType, UnderlyingSource};
+-use crate::streams::writable_stream::{WritableStream, is_writable_stream_locked};
++use crate::streams::writable_stream::{AnyWritableStream, WritableStream, is_writable_stream_locked};
+ 
+ unsafe extern "C" {
+     /// Tells Page::RenderingStats that the stream, a ReadableStream, no longer holds rendering back.
+@@ -85,7 +85,7 @@ pub(crate) struct ReadableStreamGetReaderOptions {
+ /// The dictionary ReadableWritablePair of Streams/ReadableStream.idl, whose members the bindings convert.
+ pub(crate) struct ReadableWritablePair {
+     pub(crate) readable: Ref<ReadableStream>,
+-    pub(crate) writable: Ref<WritableStream>,
++    pub(crate) writable: AnyWritableStream,
+ }
+ 
+ /// The dictionary StreamPipeOptions of Streams/ReadableStream.idl, whose members the bindings convert.
+@@ -342,7 +342,7 @@ impl ReadableStream {
+         }
+ 
+         // 2. If ! IsWritableStreamLocked(transform["writable"]) is true, throw a TypeError exception.
+-        if is_writable_stream_locked(transform.writable) {
++        if is_writable_stream_locked(transform.writable.stream()) {
+             return Err(Exception::type_error(
+                 "Failed to execute 'pipeThrough' on 'ReadableStream': parameter 1's 'writable' is locked",
+             ));
+@@ -356,7 +356,7 @@ impl ReadableStream {
+         let promise = readable_stream_pipe_to(
+             cx,
+             *this,
+-            transform.writable,
++            transform.writable.stream(),
+             options.prevent_close,
+             options.prevent_abort,
+             options.prevent_cancel,
+@@ -374,10 +374,11 @@ impl ReadableStream {
+     pub(crate) fn pipe_to(
+         this: &Ref<Self>,
+         cx: &mut CallContext,
+-        destination: Ref<WritableStream>,
++        destination: AnyWritableStream,
+         options: StreamPipeOptions,
+     ) -> WebIdlResult<WebIdlPromise> {
+         let cx = &this.context(cx.vm());
++        let destination = destination.stream();
+ 
+         // 1. If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
+         if is_readable_stream_locked(*this) {
+@@ -575,7 +576,7 @@ impl Transferable for ReadableStream {
+             let (port1, port2) = create_entangled_ports(cx);
+ 
+             // 5. Let writable be a new WritableStream in the current Realm.
+-            let writable = allocate(cx.vm(), |defer_gc| WritableStream::new(defer_gc, cx.realm()));
++            let writable = WritableStream::create(cx.vm(), cx.realm());
+ 
+             // 6. Perform ! SetUpCrossRealmTransformWritable(writable, port1).
+             set_up_cross_realm_transform_writable(cx, writable, port1);
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream.rs
+index bd6beeb21b9..7f1c1dc7b75 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream.rs
+@@ -28,6 +28,7 @@ use crate::streams::cross_realm_transform::{
+     create_entangled_ports, deserialize_message_port, serialize_message_port, set_up_cross_realm_transform_readable,
+     set_up_cross_realm_transform_writable,
+ };
++use crate::streams::file_system_writable_file_stream::FileSystemWritableFileStream;
+ use crate::streams::queuing_strategy::{QueuingStrategy, extract_high_water_mark, extract_size_algorithm};
+ use crate::streams::readable_stream::ReadableStream;
+ use crate::streams::readable_stream_pipe_to::readable_stream_pipe_to;
+@@ -66,6 +67,8 @@ pub(crate) struct PendingAbortRequest {
+ #[derive(Trace)]
+ #[gc(crate = libjs_rust)]
+ pub(crate) struct WritableStream {
++    // The generated receiver delegates through &WritableStream for inherited methods.
++    identity: Cell<Option<Ref<Self>>>,
+     /// The realm of the stream, which its promises and the results of its operations are created in.
+     realm: Cell<Gc<Realm>>,
+     // https://streams.spec.whatwg.org/#writablestream-backpressure
+@@ -95,10 +98,38 @@ pub(crate) struct WritableStream {
+ 
+ impl Wrappable for WritableStream {}
+ 
++/// IDL arguments can carry the base interface or its filesystem specialization.
++#[derive(Clone, Trace)]
++#[gc(crate = libjs_rust)]
++pub(crate) enum AnyWritableStream {
++    WritableStream(Ref<WritableStream>),
++    FileSystemWritableFileStream(Ref<FileSystemWritableFileStream>),
++}
++
++impl AnyWritableStream {
++    pub(crate) fn stream(&self) -> Ref<WritableStream> {
++        match self {
++            Self::WritableStream(stream) => *stream,
++            Self::FileSystemWritableFileStream(stream) => stream.stream(),
++        }
++    }
++}
++
+ impl WritableStream {
++    pub(crate) fn create(vm: &Vm, realm: Gc<Realm>) -> Ref<Self> {
++        let stream = allocate(vm, |defer_gc| Self::new(defer_gc, realm));
++        stream.identity.set(Some(stream));
++        stream
++    }
++
++    fn identity(&self) -> Ref<Self> {
++        self.identity.get().expect("a live WritableStream has its identity")
++    }
++
+     /// A new WritableStream in the realm, which InitializeWritableStream has initialized.
+-    pub(crate) fn new(_: &DeferGc<'_>, realm: Gc<Realm>) -> Self {
++    fn new(_: &DeferGc<'_>, realm: Gc<Realm>) -> Self {
+         Self {
++            identity: Cell::new(None),
+             realm: Cell::new(realm),
+             backpressure: Cell::new(false),
+             close_request: Cell::new(None),
+@@ -179,7 +210,7 @@ impl WritableStream {
+         }
+ 
+         // 4. Perform ! InitializeWritableStream(this).
+-        let this = allocate(cx.vm(), |defer_gc| Self::new(defer_gc, cx.realm()));
++        let this = Self::create(cx.vm(), cx.realm());
+ 
+         // 5. Let sizeAlgorithm be ! ExtractSizeAlgorithm(strategy).
+         let size_algorithm = extract_size_algorithm(&strategy);
+@@ -200,6 +231,19 @@ impl WritableStream {
+         Ok(this)
+     }
+ 
++    /// Installs an internal sink with the default queuing strategy on an already allocated stream.
++    pub(crate) fn set_up_using_sink(this: Ref<Self>, cx: &CallContext, sink: Value) -> WebIdlResult<()> {
++        let dictionary = UnderlyingSink::from_js(cx.vm(), sink)?;
++        set_up_writable_stream_default_controller_from_underlying_sink(
++            cx,
++            this,
++            sink,
++            dictionary,
++            1.0,
++            SizeAlgorithm::ReturnsOne,
++        )
++    }
++
+     // https://streams.spec.whatwg.org/#writablestream-set-up
+     pub(crate) fn set_up(this: Ref<Self>, cx: &CallContext, write_algorithm: WriteAlgorithm, high_water_mark: f64) {
+         // 1. Let startAlgorithm be an algorithm that returns undefined.
+@@ -239,46 +283,50 @@ impl WritableStream {
+     }
+ 
+     // https://streams.spec.whatwg.org/#ws-locked
+-    pub(crate) fn locked(this: &Ref<Self>, _: &mut CallContext) -> WebIdlResult<bool> {
++    pub(crate) fn locked(this: &Self, _: &mut CallContext) -> WebIdlResult<bool> {
+         // 1. Return ! IsWritableStreamLocked(this).
+-        Ok(is_writable_stream_locked(*this))
++        Ok(is_writable_stream_locked(this.identity()))
+     }
+ 
+     // https://streams.spec.whatwg.org/#ws-abort
+-    pub(crate) fn abort(this: &Ref<Self>, cx: &mut CallContext, reason: Option<Value>) -> WebIdlResult<WebIdlPromise> {
++    pub(crate) fn abort(this: &Self, cx: &mut CallContext, reason: Option<Value>) -> WebIdlResult<WebIdlPromise> {
+         // 1. If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
+-        if is_writable_stream_locked(*this) {
++        if is_writable_stream_locked(this.identity()) {
+             let exception = Exception::type_error("Cannot abort a locked stream");
+             return Ok(create_rejected_promise_from_exception(cx.vm(), cx.realm(), exception));
+         }
+ 
+         // 2. Return ! WritableStreamAbort(this, reason).
+-        Ok(writable_stream_abort(cx, *this, reason.unwrap_or(Value::UNDEFINED)))
++        Ok(writable_stream_abort(
++            cx,
++            this.identity(),
++            reason.unwrap_or(Value::UNDEFINED),
++        ))
+     }
+ 
+     // https://streams.spec.whatwg.org/#ws-close
+-    pub(crate) fn close(this: &Ref<Self>, cx: &mut CallContext) -> WebIdlResult<WebIdlPromise> {
++    pub(crate) fn close(this: &Self, cx: &mut CallContext) -> WebIdlResult<WebIdlPromise> {
+         // 1. If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
+-        if is_writable_stream_locked(*this) {
++        if is_writable_stream_locked(this.identity()) {
+             let exception = Exception::type_error("Cannot close a locked stream");
+             return Ok(create_rejected_promise_from_exception(cx.vm(), cx.realm(), exception));
+         }
+ 
+         // 2. If ! WritableStreamCloseQueuedOrInFlight(this) is true, return a promise rejected with a TypeError
+         //    exception.
+-        if writable_stream_close_queued_or_in_flight(*this) {
++        if writable_stream_close_queued_or_in_flight(this.identity()) {
+             let exception = Exception::type_error("Cannot close a stream that is already closed or errored");
+             return Ok(create_rejected_promise_from_exception(cx.vm(), cx.realm(), exception));
+         }
+ 
+         // 3. Return ! WritableStreamClose(this).
+-        Ok(writable_stream_close(cx, *this))
++        Ok(writable_stream_close(cx, this.identity()))
+     }
+ 
+     // https://streams.spec.whatwg.org/#ws-get-writer
+-    pub(crate) fn get_writer(this: &Ref<Self>, cx: &mut CallContext) -> WebIdlResult<Ref<WritableStreamDefaultWriter>> {
++    pub(crate) fn get_writer(this: &Self, cx: &mut CallContext) -> WebIdlResult<Ref<WritableStreamDefaultWriter>> {
+         // 1. Return ? AcquireWritableStreamDefaultWriter(this).
+-        acquire_writable_stream_default_writer(cx, *this)
++        acquire_writable_stream_default_writer(cx, this.identity())
+     }
+ }
+ 
+@@ -375,7 +423,7 @@ pub(crate) fn create_writable_stream(
+     assert!(is_non_negative_number(Value::from_f64(high_water_mark)));
+ 
+     // 2. Let stream be a new WritableStream.
+-    let stream = allocate(cx.vm(), |defer_gc| WritableStream::new(defer_gc, cx.realm()));
++    let stream = WritableStream::create(cx.vm(), cx.realm());
+ 
+     // 3. Perform ! InitializeWritableStream(stream).
+     initialize_writable_stream(cx.vm(), stream);
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream_default_writer.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream_default_writer.rs
+index eac2dd4ea55..f1df59f1522 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream_default_writer.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/streams/writable_stream_default_writer.rs
+@@ -18,8 +18,9 @@ use crate::bindings::promise::{
+ };
+ use crate::bindings::{CallContext, Exception, WebIdlResult};
+ use crate::streams::writable_stream::{
+-    WritableStream, WritableStreamState, set_up_writable_stream_default_writer, writable_stream_abort,
+-    writable_stream_add_write_request, writable_stream_close, writable_stream_close_queued_or_in_flight,
++    AnyWritableStream, WritableStream, WritableStreamState, set_up_writable_stream_default_writer,
++    writable_stream_abort, writable_stream_add_write_request, writable_stream_close,
++    writable_stream_close_queued_or_in_flight,
+ };
+ use crate::streams::writable_stream_default_controller::{
+     writable_stream_default_controller_get_chunk_size, writable_stream_default_controller_get_desired_size,
+@@ -92,11 +93,11 @@ impl WritableStreamDefaultWriter {
+     }
+ 
+     // https://streams.spec.whatwg.org/#default-writer-constructor
+-    pub(crate) fn construct(cx: &mut CallContext, stream: Ref<WritableStream>) -> WebIdlResult<Ref<Self>> {
++    pub(crate) fn construct(cx: &mut CallContext, stream: AnyWritableStream) -> WebIdlResult<Ref<Self>> {
+         let this = allocate(cx.vm(), |_| Self::new());
+ 
+         // 1. Perform ? SetUpWritableStreamDefaultWriter(this, stream).
+-        set_up_writable_stream_default_writer(cx, this, stream)?;
++        set_up_writable_stream_default_writer(cx, this, stream.stream())?;
+         Ok(this)
+     }
+ 
 diff --git a/Libraries/LibWeb/CMakeLists.txt b/Libraries/LibWeb/CMakeLists.txt
-index d9b2b106a2a..5687fbdbf75 100644
+index d9b2b106a2a..b885e190d00 100644
 --- a/Libraries/LibWeb/CMakeLists.txt
 +++ b/Libraries/LibWeb/CMakeLists.txt
-@@ -270,6 +270,9 @@ set(SOURCES
+@@ -270,6 +270,10 @@ set(SOURCES
      Editing/VisiblePosition.cpp
      Editing/ReplaceSelection.cpp
      EntriesAPI/FileSystemEntry.cpp
 +    FileSystemAccess/Handles.cpp
 +    FileSystemAccess/Pickers.cpp
 +    FileSystemAccess/Provider.cpp
++    FileSystemAccess/Writable.cpp
      EventTiming/EventTiming.cpp
      Fetch/Body.cpp
      Fetch/BodyInit.cpp
@@ -68,10 +439,10 @@ index 00000000000..78a116b6cdb
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.h
 new file mode 100644
-index 00000000000..088f781b9ba
+index 00000000000..4a13c12c104
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.h
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,26 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -88,6 +459,8 @@ index 00000000000..088f781b9ba
 +
 +public:
 +    WebIDL::ExceptionOr<void> get_file(GC::Ref<WebIDL::Promise>);
++    WebIDL::ExceptionOr<void> create_writable(
++        Bindings::FileSystemCreateWritableOptions const&, GC::Ref<WebIDL::Promise>);
 +
 +private:
 +    friend class FileSystemHandle;
@@ -98,13 +471,17 @@ index 00000000000..088f781b9ba
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl
 new file mode 100644
-index 00000000000..86c604b4ab5
+index 00000000000..0ea6fd778b3
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl
-@@ -0,0 +1,4 @@
+@@ -0,0 +1,8 @@
++dictionary FileSystemCreateWritableOptions {
++    boolean keepExistingData = false;
++};
 +[SecureContext, Exposed=Window]
 +interface FileSystemFileHandle : FileSystemHandle {
 +    [CreatesPromise] Promise<File> getFile();
++    [CreatesPromise] Promise<FileSystemWritableFileStream> createWritable(optional FileSystemCreateWritableOptions options = {});
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
 new file mode 100644
@@ -367,10 +744,10 @@ index 00000000000..fb18e141b70
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/Pickers.cpp b/Libraries/LibWeb/FileSystemAccess/Pickers.cpp
 new file mode 100644
-index 00000000000..5df52813489
+index 00000000000..c106f2bce45
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Pickers.cpp
-@@ -0,0 +1,136 @@
+@@ -0,0 +1,223 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -388,6 +765,8 @@ index 00000000000..5df52813489
 +#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 +#include <LibWeb/HTML/Window.h>
 +#include <LibWeb/WebIDL/DOMException.h>
++#include <LibWeb/WebIDL/QuotaExceededError.h>
++#include <LibWebCommon/MimeSniff/MimeType.h>
 +
 +namespace Web::HTML {
 +namespace {
@@ -414,6 +793,97 @@ index 00000000000..5df52813489
 +            || !window.has_transient_activation())
 +            return WebIDL::SecurityError::create(
 +                "A secure same-origin active document and user activation are required"_utf16);
++        return {};
++    }
++
++    WebIDL::ExceptionOr<void> apply_start_location(JsonObject& request,
++        Optional<Variant<Bindings::WellKnownDirectory,
++            GC::Ref<FileSystemAccess::FileSystemHandle>>> const& start_in)
++    {
++        if (!start_in.has_value())
++            return {};
++        if (start_in->has<GC::Ref<FileSystemAccess::FileSystemHandle>>())
++            return WebIDL::NotSupportedError::create(
++                "File handle start locations are unavailable"_utf16);
++        request.set("startIn"sv,
++            Bindings::idl_enum_to_string(start_in->get<Bindings::WellKnownDirectory>())
++                .to_well_formed_utf8());
++        return {};
++    }
++
++    WebIDL::ExceptionOr<void> apply_filters(
++        JsonObject& request, Bindings::FilePickerOptions const& options)
++    {
++        auto invalid = [] {
++            return WebIDL::SimpleException { WebIDL::SimpleExceptionType::TypeError,
++                "Invalid file picker types"_utf16 };
++        };
++        JsonArray groups;
++        if (options.types.has_value()) {
++            if (options.types->size() > 16)
++                return WebIDL::QuotaExceededError::create("Too many file picker groups"_utf16);
++
++            for (auto const& type : *options.types) {
++                if (!type.accept.has_value() || type.accept->is_empty())
++                    continue;
++                if (type.accept->size() > 16)
++                    return WebIDL::QuotaExceededError::create(
++                        "Too many file picker media types"_utf16);
++
++                JsonArray extensions;
++                JsonArray mimes;
++                for (auto const& item : *type.accept) {
++                    auto mime = item.key.to_well_formed_utf8();
++                    auto parsed = MimeSniff::MimeType::parse(mime.bytes_as_string_view());
++                    if (mime.byte_count() > 127 || !parsed.has_value()
++                        || !parsed->parameters().is_empty() || mime.contains(';'))
++                        return invalid();
++
++                    auto add_suffix = [&](Utf16String const& suffix) -> WebIDL::ExceptionOr<void> {
++                        auto encoded = suffix.to_well_formed_utf8();
++                        auto extension = encoded.bytes_as_string_view();
++                        if (extension.length() < 2 || extension.length() > 16
++                            || !extension.starts_with('.') || extension.ends_with('.'))
++                            return invalid();
++                        for (auto character : extension) {
++                            if (!is_ascii_alphanumeric(character) && character != '.'
++                                && character != '+' && character != '-' && character != '_')
++                                return invalid();
++                        }
++                        if (extensions.size() >= 32)
++                            return WebIDL::QuotaExceededError::create(
++                                "Too many file picker extensions"_utf16);
++                        MUST(extensions.append(move(encoded)));
++                        return {};
++                    };
++
++                    if (item.value.has<Utf16String>()) {
++                        TRY(add_suffix(item.value.get<Utf16String>()));
++                    } else {
++                        auto const& suffixes = item.value.get<Vector<Utf16String>>();
++                        for (auto const& suffix : suffixes)
++                            TRY(add_suffix(suffix));
++                        if (suffixes.is_empty())
++                            MUST(mimes.append(parsed->essence()));
++                    }
++                }
++
++                auto description = type.description.to_well_formed_utf8();
++                if (description.byte_count() > 256)
++                    return WebIDL::QuotaExceededError::create(
++                        "File picker description is too long"_utf16);
++                JsonObject entry;
++                entry.set("extensions"sv, move(extensions));
++                entry.set("mimes"sv, move(mimes));
++                entry.set("description"sv, move(description));
++                MUST(groups.append(move(entry)));
++            }
++        }
++
++        if (options.exclude_accept_all_option && groups.is_empty())
++            return invalid();
++        request.set("excludeAcceptAllOption"sv, options.exclude_accept_all_option);
++        request.set("filterGroups"sv, move(groups));
 +        return {};
 +    }
 +
@@ -462,12 +932,9 @@ index 00000000000..5df52813489
 +    Bindings::OpenFilePickerOptions const& options, GC::Ref<WebIDL::Promise> promise)
 +{
 +    TRY(check_picker(*this, options.id));
-+    if (options.types.has_value() || options.start_in.has_value()
-+        || options.exclude_accept_all_option)
-+        return WebIDL::NotSupportedError::create(
-+            "Picker filters and start locations are unavailable"_utf16);
-+
 +    JsonObject request;
++    TRY(apply_start_location(request, options.start_in));
++    TRY(apply_filters(request, options));
 +    request.set("operation"sv, "open"sv);
 +    request.set("multiple"sv, options.multiple);
 +    pick(*this, move(request), promise, true);
@@ -478,12 +945,12 @@ index 00000000000..5df52813489
 +    Bindings::DirectoryPickerOptions const& options, GC::Ref<WebIDL::Promise> promise)
 +{
 +    TRY(check_picker(*this, options.id));
-+    if (options.mode == Bindings::FileSystemPermissionMode::Readwrite
-+        || options.start_in.has_value())
++    if (options.mode == Bindings::FileSystemPermissionMode::Readwrite)
 +        return WebIDL::NotSupportedError::create(
-+            "Writable directory selection and start locations are unavailable"_utf16);
++            "Writable directory selection is unavailable"_utf16);
 +
 +    JsonObject request;
++    TRY(apply_start_location(request, options.start_in));
 +    request.set("operation"sv, "directory"sv);
 +    pick(*this, move(request), promise, false);
 +    return {};
@@ -493,12 +960,9 @@ index 00000000000..5df52813489
 +    Bindings::SaveFilePickerOptions const& options, GC::Ref<WebIDL::Promise> promise)
 +{
 +    TRY(check_picker(*this, options.id));
-+    if (options.types.has_value() || options.start_in.has_value()
-+        || options.exclude_accept_all_option)
-+        return WebIDL::NotSupportedError::create(
-+            "Picker filters and start locations are unavailable"_utf16);
-+
 +    JsonObject request;
++    TRY(apply_start_location(request, options.start_in));
++    TRY(apply_filters(request, options));
 +    request.set("operation"sv, "save"sv);
 +    if (options.suggested_name.has_value() && options.suggested_name->has_value())
 +        request.set("suggestedName"sv, options.suggested_name->value().to_well_formed_utf8());
@@ -600,6 +1064,264 @@ index 00000000000..e81b0834d91
 +bool reject_if_failed(WebIDL::Promise const&, JsonObject const&);
 +
 +}
+diff --git a/Libraries/LibWeb/FileSystemAccess/Writable.cpp b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
+new file mode 100644
+index 00000000000..b4808557baa
+--- /dev/null
++++ b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
+@@ -0,0 +1,252 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#include <LibGC/Function.h>
++#include <LibGC/Heap.h>
++#include <LibGC/Root.h>
++#include <LibJS/HostClassBuilder.h>
++#include <LibJS/Runtime/ArrayBuffer.h>
++#include <LibJS/Runtime/DataView.h>
++#include <LibJS/Runtime/Error.h>
++#include <LibJS/Runtime/Realm.h>
++#include <LibJS/Runtime/TypedArray.h>
++#include <LibJS/Runtime/VM.h>
++#include <LibWeb/Bindings/FileSystemFileHandle.h>
++#include <LibWeb/Bindings/WrapperWorld.h>
++#include <LibWeb/DOM/Document.h>
++#include <LibWeb/FileAPI/Blob.h>
++#include <LibWeb/FileSystemAccess/FileSystemFileHandle.h>
++#include <LibWeb/Streams/FileSystemWritableFileStream.h>
++#include <LibWeb/FileSystemAccess/Provider.h>
++#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
++#include <LibWeb/WebIDL/AbstractOperations.h>
++
++namespace Web::FileSystemAccess {
++
++extern "C" void* web_rust_file_system_writable_file_stream_create(JSVM*, void* realm, JSValue sink);
++
++class WriteSession final : public GC::Cell {
++    GC_CELL(WriteSession, GC::Cell);
++    GC_DECLARE_ALLOCATOR(WriteSession);
++
++public:
++    WriteSession(DOM::Document& document, String token)
++        : m_document(document)
++        , m_token(move(token))
++    {
++    }
++
++    JS::ThrowCompletionOr<JS::Value> write(JS::VM&);
++    GC::Ref<WebIDL::Promise> finish(JS::Realm&, bool commit);
++
++private:
++    virtual void visit_edges(GC::Cell::Visitor& visitor) override
++    {
++        Base::visit_edges(visitor);
++        visitor.visit(m_document);
++    }
++
++    void send(JsonObject, GC::Ref<WebIDL::Promise>, ReadonlyBytes = {});
++    void write_bytes(GC::Root<WebIDL::Promise>, ByteBuffer, size_t written);
++
++    GC::Ref<DOM::Document> m_document;
++    String m_token;
++    u64 m_position { 0 };
++};
++
++GC_DEFINE_ALLOCATOR(WriteSession);
++
++void WriteSession::send(JsonObject options, GC::Ref<WebIDL::Promise> promise, ReadonlyBytes bytes)
++{
++    options.set("token"sv, m_token);
++    request(
++        *m_document, move(options),
++        [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
++            if (!reject_if_failed(*promise, result))
++                WebIDL::resolve_promise(*promise);
++        },
++        bytes);
++}
++
++GC::Ref<WebIDL::Promise> WriteSession::finish(JS::Realm& realm, bool commit)
++{
++    auto promise = WebIDL::create_promise(realm);
++    JsonObject options;
++    options.set("operation"sv, commit ? "closeWriter"sv : "abortWriter"sv);
++    send(move(options), promise);
++    return promise;
++}
++
++void WriteSession::write_bytes(
++    GC::Root<WebIDL::Promise> promise, ByteBuffer contents, size_t written)
++{
++    if (written == contents.size()) {
++        WebIDL::resolve_promise(*promise);
++        return;
++    }
++
++    auto count = min(contents.size() - written, size_t { 256 * 1024 });
++    if (m_position > NumericLimits<u64>::max() - count) {
++        reject(*promise, "TypeError"sv);
++        return;
++    }
++
++    JsonObject options;
++    options.set("operation"sv, "write"sv);
++    options.set("token"sv, m_token);
++    options.set("offset"sv, m_position);
++    // The provider copies this view before the callback takes ownership of the backing buffer.
++    auto bytes = MUST(ByteBuffer::copy(contents.bytes().slice(written, count)));
++    request(
++        *m_document, move(options),
++        [session = GC::Root { *this }, promise = move(promise), contents = move(contents), written,
++            count](JsonObject result, ByteBuffer) mutable {
++            if (reject_if_failed(*promise, result))
++                return;
++
++            session->m_position += count;
++            session->write_bytes(move(promise), move(contents), written + count);
++        },
++        bytes.bytes());
++}
++
++static JS::ThrowCompletionOr<u64> position_from(JS::VM& vm, JS::Value value)
++{
++    auto number = TRY(value.to_number(vm)).as_double();
++    if (!isfinite(number) || number < 0 || number >= 0x1p64)
++        return vm.throw_completion<JS::TypeError>("Invalid file offset"_utf16);
++    return static_cast<u64>(number);
++}
++
++JS::ThrowCompletionOr<JS::Value> WriteSession::write(JS::VM& vm)
++{
++    auto& realm = *vm.current_realm();
++    auto promise = WebIDL::create_promise(realm);
++    auto value = vm.argument(0);
++    auto data = value;
++    GC::Ptr<FileAPI::Blob> blob;
++    auto is_buffer = [](JS::Value candidate) {
++        return candidate.is_object()
++            && (is<JS::ArrayBuffer>(candidate.as_object())
++                || is<JS::TypedArrayBase>(candidate.as_object())
++                || is<JS::DataView>(candidate.as_object()));
++    };
++
++    if (value.is_object() && !is_buffer(value)) {
++        blob = Bindings::impl_from<FileAPI::Blob>(&value.as_object());
++        if (!blob) {
++            auto type = TRY(value.as_object().get("type"_utf16));
++            auto command = TRY(type.to_utf16_string(vm));
++            if (command == "seek"_utf16) {
++                auto offset = TRY(position_from(vm, TRY(value.as_object().get("position"_utf16))));
++                m_position = offset;
++                WebIDL::resolve_promise(*promise);
++                return promise->promise();
++            }
++
++            if (command == "truncate"_utf16) {
++                auto size = TRY(position_from(vm, TRY(value.as_object().get("size"_utf16))));
++                JsonObject options;
++                options.set("operation"sv, "truncate"sv);
++                options.set("size"sv, size);
++                options.set("token"sv, m_token);
++                request(*m_document, move(options),
++                    [session = GC::Root { *this }, promise = GC::Root { promise }, size](
++                        JsonObject result, ByteBuffer) {
++                        if (!reject_if_failed(*promise, result)) {
++                            session->m_position = min(session->m_position, size);
++                            WebIDL::resolve_promise(*promise);
++                        }
++                    });
++                return promise->promise();
++            }
++
++            if (command != "write"_utf16)
++                return vm.throw_completion<JS::TypeError>("Invalid file write command"_utf16);
++            auto offset = TRY(value.as_object().get("position"_utf16));
++            if (!offset.is_nullish())
++                m_position = TRY(position_from(vm, offset));
++            data = TRY(value.as_object().get("data"_utf16));
++            if (data.is_nullish())
++                return vm.throw_completion<JS::TypeError>("Missing file write data"_utf16);
++            if (data.is_object())
++                blob = Bindings::impl_from<FileAPI::Blob>(&data.as_object());
++        }
++    }
++
++    auto bytes = [](JS::VM& vm, JS::Value data, GC::Ptr<FileAPI::Blob> blob,
++                     bool buffer) -> JS::ThrowCompletionOr<ErrorOr<ByteBuffer>> {
++        if (blob)
++            return ByteBuffer::copy(blob->raw_bytes());
++        if (buffer)
++            return WebIDL::get_buffer_source_copy(data.as_object());
++
++        auto input = TRY(data.to_utf16_string(vm)).to_well_formed_utf8();
++        return ByteBuffer::copy(input.bytes());
++    }(vm, data, blob, is_buffer(data));
++    auto buffer = TRY(move(bytes));
++    if (buffer.is_error())
++        reject(*promise, "QuotaExceededError"sv);
++    else
++        write_bytes(GC::Root { promise }, buffer.release_value(), 0);
++    return promise->promise();
++}
++
++WebIDL::ExceptionOr<void> FileSystemFileHandle::create_writable(
++    Bindings::FileSystemCreateWritableOptions const& options, GC::Ref<WebIDL::Promise> promise)
++{
++    JsonObject metadata;
++    metadata.set("operation"sv, "beginWrite"sv);
++    metadata.set("token"sv, token());
++    metadata.set("keepExistingData"sv, options.keep_existing_data);
++    request(document(), move(metadata),
++        [document = GC::Root { document() }, promise = GC::Root { promise }](
++            JsonObject result, ByteBuffer) {
++            if (reject_if_failed(*promise, result))
++                return;
++
++            auto writer = result.get_string("writer"sv);
++            if (!writer.has_value()) {
++                reject(*promise, "UnknownError"sv);
++                return;
++            }
++
++            auto& realm = WebIDL::promise_realm(*promise);
++            HTML::TemporaryExecutionContext context(realm);
++            GC::Root session { realm.heap().allocate<WriteSession>(*document, *writer) };
++            auto sink = JS::Object::create(realm, nullptr);
++            auto write = GC::create_function<JS::ThrowCompletionOr<JS::Value>(JS::VM&)>(
++                realm.heap(), GC::captures(GC::Ref { *session }),
++                [](auto& session, auto& vm) { return session->write(vm); });
++            sink->define_native_function(realm, "write"_utf16, write, 1, JS::default_attributes);
++
++            auto close = GC::create_function<JS::ThrowCompletionOr<JS::Value>(JS::VM&)>(
++                realm.heap(), GC::captures(GC::Ref { *session }), [](auto& session, auto& vm) {
++                    return session->finish(*vm.current_realm(), true)->promise();
++                });
++            sink->define_native_function(realm, "close"_utf16, close, 0, JS::default_attributes);
++
++            auto abort = GC::create_function<JS::ThrowCompletionOr<JS::Value>(JS::VM&)>(
++                realm.heap(), GC::captures(GC::Ref { *session }), [](auto& session, auto& vm) {
++                    return session->finish(*vm.current_realm(), false)->promise();
++                });
++            sink->define_native_function(realm, "abort"_utf16, abort, 1, JS::default_attributes);
++
++            auto* stream = static_cast<Streams::FileSystemWritableFileStream*>(
++                web_rust_file_system_writable_file_stream_create(
++                    JS::HostABI::vm_to_abi(realm.vm()), &realm, JS::HostABI::value_to_abi(sink)));
++            if (!stream) {
++                WebIDL::mark_promise_as_handled(*session->finish(realm, false));
++                reject(*promise, "UnknownError"sv);
++                return;
++            }
++
++            WebIDL::resolve_promise(*promise,
++                Bindings::wrap(
++                    Bindings::host_defined_wrapper_world(realm), realm, GC::Ref { *stream }));
++        });
++    return {};
++}
++
++}
 diff --git a/Libraries/LibWeb/HTML/Window.h b/Libraries/LibWeb/HTML/Window.h
 index d5ab5df6866..ef2627ef998 100644
 --- a/Libraries/LibWeb/HTML/Window.h
@@ -633,11 +1355,45 @@ index d19afde0707..f7a672f3b46 100644
  Window includes AnimationFrameProvider;
  Window includes GlobalEventHandlers;
  Window includes WindowEventHandlers;
+diff --git a/Libraries/LibWeb/Streams/FileSystemWritableFileStream.h b/Libraries/LibWeb/Streams/FileSystemWritableFileStream.h
+new file mode 100644
+index 00000000000..e5a00ce210c
+--- /dev/null
++++ b/Libraries/LibWeb/Streams/FileSystemWritableFileStream.h
+@@ -0,0 +1,16 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#pragma once
++
++#include <LibWeb/Bindings/FileSystemWritableFileStream.h>
++#include <LibWeb/Streams/WritableStream.h>
++
++namespace Web::Streams {
++
++class FileSystemWritableFileStream : public WritableStream {
++    WEB_RUST_INTERFACE(FileSystemWritableFileStream, file_system_writable_file_stream)
++};
++
++}
+diff --git a/Libraries/LibWeb/Streams/FileSystemWritableFileStream.idl b/Libraries/LibWeb/Streams/FileSystemWritableFileStream.idl
+new file mode 100644
+index 00000000000..50e472c4005
+--- /dev/null
++++ b/Libraries/LibWeb/Streams/FileSystemWritableFileStream.idl
+@@ -0,0 +1,6 @@
++[Exposed=Window, SecureContext, ImplementedIn=Rust]
++interface FileSystemWritableFileStream : WritableStream {
++    Promise<undefined> write(any data);
++    Promise<undefined> seek([EnforceRange] unsigned long long position);
++    Promise<undefined> truncate([EnforceRange] unsigned long long size);
++};
 diff --git a/Libraries/LibWeb/idl_files.cmake b/Libraries/LibWeb/idl_files.cmake
-index c466d9fde06..f61b61b44b8 100644
+index c466d9fde06..195b332bc26 100644
 --- a/Libraries/LibWeb/idl_files.cmake
 +++ b/Libraries/LibWeb/idl_files.cmake
-@@ -160,6 +160,10 @@ libweb_js_bindings(Encoding/TextEncoderCommon)
+@@ -160,6 +160,11 @@ libweb_js_bindings(Encoding/TextEncoderCommon)
  libweb_js_bindings(Encoding/TextEncoderStream)
  libweb_js_bindings(EncryptedMediaExtensions/MediaKeySystemAccess)
  libweb_js_bindings(EntriesAPI/FileSystemEntry)
@@ -645,6 +1401,7 @@ index c466d9fde06..f61b61b44b8 100644
 +libweb_js_bindings(FileSystemAccess/FileSystemFileHandle)
 +libweb_js_bindings(FileSystemAccess/FileSystemDirectoryHandle)
 +libweb_js_bindings(FileSystemAccess/FileSystemPickerOptions)
++libweb_js_bindings(Streams/FileSystemWritableFileStream)
  libweb_js_bindings(EventTiming/EventCounts)
  libweb_js_bindings(EventTiming/PerformanceEventTiming)
  libweb_js_bindings(Fetch/Body)

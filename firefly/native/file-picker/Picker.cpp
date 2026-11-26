@@ -192,8 +192,13 @@ bool FilePicker::request_selection(Selection const& selection, PathCompletion co
         break;
     }
 
-    if (selection.mode != Mode::Directory)
-        dialog->setNameFilter(filters(selection.accepted_types));
+    if (selection.mode != Mode::Directory) {
+        if (selection.name_filters.isEmpty())
+            dialog->setNameFilter(filters(selection.accepted_types));
+        else
+            dialog->setNameFilters(selection.name_filters);
+    }
+
     if (!name.isEmpty())
         dialog->selectFile(name);
 

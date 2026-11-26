@@ -182,6 +182,7 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_save(Document owner, S
         if (!file.is_error())
             close_on_error.disarm();
     }
+
     if (file.is_error())
         return file.release_error();
 
@@ -191,6 +192,7 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_save(Document owner, S
         release(owner, handle.token);
         return stored.release_error();
     }
+
     return handle;
 #endif
 }
@@ -225,6 +227,9 @@ ErrorOr<String> FileAccessGrants::begin_write(
     }
 
     auto parent = TRY(open_entry(target->value->parent->fd(), "."sv, Kind::Directory));
+    if (faccessat(parent->fd(), target->value->name.characters(), W_OK, AT_EACCESS) < 0)
+        return Error::from_errno(errno);
+
     auto writer_token = new_token();
     auto name = TRY(String::formatted(".elytra-file-{}", writer_token)).to_byte_string();
     auto fd = openat(
@@ -237,17 +242,15 @@ ErrorOr<String> FileAccessGrants::begin_write(
     ArmedScopeGuard close_on_error = [&] { (void)Core::System::close(fd); };
     auto file = TRY(Core::File::adopt_fd(fd, Core::File::OpenMode::ReadWrite));
     close_on_error.disarm();
-    auto original = TRY(Core::System::fstat(entry->descriptor->fd()));
-    if (fchmod(fd, original.st_mode & 0777) < 0)
-        return Error::from_errno(errno);
-
     // Bound initial copying on the browser IPC thread.
     if (keep_existing_data) {
         constexpr u64 max_initial_copy = 16 * 1024 * 1024;
-        if (static_cast<u64>(original.st_size) > max_initial_copy)
+        auto original = TRY(Core::System::fstat(entry->descriptor->fd()));
+        auto size = static_cast<u64>(original.st_size);
+        if (size > max_initial_copy)
             return Error::from_errno(E2BIG);
-        for (u64 offset = 0; offset < static_cast<u64>(original.st_size);) {
-            auto bytes = TRY(read(owner, token, offset, max_read_size));
+        for (u64 offset = 0; offset < size;) {
+            auto bytes = TRY(read(owner, token, offset, min<u64>(max_read_size, size - offset)));
             if (bytes.is_empty())
                 break;
             TRY(file->write_until_depleted(bytes.bytes()));
@@ -279,6 +282,8 @@ ErrorOr<void> FileAccessGrants::write(
         || offset > static_cast<u64>(NumericLimits<off_t>::max()) - bytes.size())
         return Error::from_errno(EINVAL);
 
+    // Once a staged write fails, a later close must not publish a partial chunk.
+    ArmedScopeGuard discard_on_error = [&] { m_writers.remove(token); };
     size_t written = 0;
     while (written < bytes.size()) {
         auto amount = pwrite(writer->file->fd(), bytes.data() + written, bytes.size() - written,
@@ -289,6 +294,8 @@ ErrorOr<void> FileAccessGrants::write(
             return Error::from_errno(amount < 0 ? errno : EIO);
         written += static_cast<size_t>(amount);
     }
+
+    discard_on_error.disarm();
     return {};
 #endif
 }
@@ -304,8 +311,12 @@ ErrorOr<void> FileAccessGrants::truncate(Document owner, String const& token, u6
     auto writer = TRY(lookup_writer(owner, token));
     if (size > static_cast<u64>(NumericLimits<off_t>::max()))
         return Error::from_errno(EINVAL);
-    if (ftruncate(writer->file->fd(), static_cast<off_t>(size)) < 0)
-        return Error::from_errno(errno);
+    if (ftruncate(writer->file->fd(), static_cast<off_t>(size)) < 0) {
+        auto error = Error::from_errno(errno);
+        m_writers.remove(token);
+        return error;
+    }
+
     return {};
 #endif
 }
@@ -329,13 +340,21 @@ ErrorOr<void> FileAccessGrants::finish_write(Document owner, String const& token
     auto parent = writer->parent->fd();
     auto* name = target->value->name.characters();
     auto original = TRY(Core::System::fstat(entry->value.descriptor->fd()));
-    struct stat current {};
-    if (fstatat(parent, name, &current, AT_SYMLINK_NOFOLLOW) < 0)
+    if (fchmod(writer->file->fd(), original.st_mode & 0777) < 0 || fsync(writer->file->fd()) < 0)
         return Error::from_errno(errno);
-    if (original.st_dev != current.st_dev || original.st_ino != current.st_ino)
-        return Error::from_errno(EAGAIN);
-    if (fsync(writer->file->fd()) < 0)
-        return Error::from_errno(errno);
+
+    auto same_entry = [&](int fd, char const* basename) -> ErrorOr<void> {
+        auto opened = TRY(Core::System::fstat(fd));
+        struct stat current {};
+        if (fstatat(parent, basename, &current, AT_SYMLINK_NOFOLLOW) < 0)
+            return Error::from_errno(errno);
+        if (opened.st_dev != current.st_dev || opened.st_ino != current.st_ino)
+            return Error::from_errno(EAGAIN);
+        return {};
+    };
+
+    TRY(same_entry(entry->value.descriptor->fd(), name));
+    TRY(same_entry(writer->file->fd(), writer->temporary_name.characters()));
     if (renameat(parent, writer->temporary_name.characters(), parent, name) < 0)
         return Error::from_errno(errno);
 

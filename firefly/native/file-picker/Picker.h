@@ -24,6 +24,7 @@ public:
         Web::HTML::FileFilter accepted_types;
         QString initial_directory;
         QString suggested_name;
+        QStringList name_filters {};
     };
 
     using PathCompletion = Function<void(QStringList)>;

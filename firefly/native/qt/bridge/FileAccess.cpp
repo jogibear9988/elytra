@@ -1,12 +1,17 @@
 /** Dispatch browser-owned filesystem capabilities for the currently active document. */
 #include "Impl.h"
+#include <AK/CharacterTypes.h>
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <LibIPC/FireflyBootstrap.h>
+#include <LibWebCommon/MimeSniff/MimeType.h>
 #include <LibWebCommon/SecureContexts/AbstractOperations.h>
 #include <LibWebView/CanonicalDocument.h>
+#include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebContentPage.h>
+#include <QMimeDatabase>
+#include <QStandardPaths>
 
 namespace Firefly {
 namespace {
@@ -94,6 +99,108 @@ namespace {
             == Web::SecureContexts::Trustworthiness::PotentiallyTrustworthy;
     }
 
+    QString qt_string(String const& value)
+    {
+        return QString::fromUtf8(
+            value.bytes_as_string_view().characters_without_null_termination(), value.byte_count());
+    }
+
+    ErrorOr<void> apply_picker_options(JsonObject const& options, FilePicker::Selection& selection)
+    {
+        if (auto location = options.get_string("startIn"sv); location.has_value()) {
+            using Location = QStandardPaths::StandardLocation;
+            Location folder;
+            if (*location == "desktop"sv)
+                folder = Location::DesktopLocation;
+            else if (*location == "documents"sv)
+                folder = Location::DocumentsLocation;
+            else if (*location == "downloads"sv)
+                folder = Location::DownloadLocation;
+            else if (*location == "music"sv)
+                folder = Location::MusicLocation;
+            else if (*location == "pictures"sv)
+                folder = Location::PicturesLocation;
+            else if (*location == "videos"sv)
+                folder = Location::MoviesLocation;
+            else
+                return Error::from_errno(EINVAL);
+
+            selection.initial_directory = QStandardPaths::writableLocation(folder);
+        }
+
+        auto groups = options.get_array("filterGroups"sv);
+        auto exclude_all = options.get_bool("excludeAcceptAllOption"sv).value_or(false);
+        if ((!groups.has_value() || groups->is_empty()) && !exclude_all)
+            return {};
+        if (!groups.has_value() || groups->is_empty() || groups->size() > 16
+            || selection.mode == FilePicker::Mode::Directory)
+            return Error::from_errno(EINVAL);
+
+        QMimeDatabase database;
+        for (size_t i = 0; i < groups->size(); ++i) {
+            auto const& value = groups->at(i);
+            if (!value.is_object())
+                return Error::from_errno(EINVAL);
+
+            auto const& group = value.as_object();
+            auto extensions = group.get_array("extensions"sv);
+            auto description = group.get_string("description"sv);
+            auto mimes = group.get_array("mimes"sv);
+            if (!extensions.has_value() || extensions->size() > 32 || !mimes.has_value()
+                || mimes->size() > 16 || !description.has_value()
+                || description->byte_count() > 256)
+                return Error::from_errno(EINVAL);
+
+            QStringList patterns;
+            for (size_t index = 0; index < extensions->size(); ++index) {
+                auto const& suffix = extensions->at(index);
+                if (!suffix.is_string())
+                    return Error::from_errno(EINVAL);
+                auto extension = suffix.as_string().bytes_as_string_view();
+                if (extension.length() < 2 || extension.length() > 16 || !extension.starts_with('.')
+                    || extension.ends_with('.'))
+                    return Error::from_errno(EINVAL);
+                for (auto character : extension) {
+                    if (!is_ascii_alphanumeric(character) && character != '.' && character != '+'
+                        && character != '-' && character != '_')
+                        return Error::from_errno(EINVAL);
+                }
+
+                patterns.append("*" + qt_string(suffix.as_string()));
+            }
+
+            for (size_t index = 0; index < mimes->size(); ++index) {
+                auto const& mime = mimes->at(index);
+                if (!mime.is_string() || mime.as_string().byte_count() > 127)
+                    return Error::from_errno(EINVAL);
+                auto parsed
+                    = Web::MimeSniff::MimeType::parse(mime.as_string().bytes_as_string_view());
+                if (!parsed.has_value() || !parsed->parameters().is_empty())
+                    return Error::from_errno(EINVAL);
+                patterns.append(database.mimeTypeForName(qt_string(parsed->essence()))
+                        .globPatterns()
+                        .mid(0, 16));
+            }
+
+            if (patterns.isEmpty())
+                continue;
+
+            patterns.removeDuplicates();
+            auto label = qt_string(*description).simplified();
+            label.replace('(', '[').replace(')', ']').replace(';', ',').replace(
+                QChar::Null, QChar('?'));
+            if (label.isEmpty())
+                label = "Accepted files";
+            selection.name_filters.append(label + " (" + patterns.join(' ') + ')');
+        }
+
+        if (!exclude_all)
+            selection.name_filters.append("All files (*)");
+        if (selection.name_filters.isEmpty())
+            return Error::from_errno(EINVAL);
+        return {};
+    }
+
     void dispatch_handle_operation(Reply const& reply, FileAccessGrants& grants,
         StringView operation, JsonObject const& options, ReadonlyBytes bytes)
     {
@@ -125,12 +232,14 @@ namespace {
                         return Error::from_errno(EINVAL);
                     return grants.write(reply.document, *token, *offset, bytes);
                 }
+
                 if (operation == "truncate"sv) {
                     auto size = options.get_u64("size"sv);
                     if (!size.has_value())
                         return Error::from_errno(EINVAL);
                     return grants.truncate(reply.document, *token, *size);
                 }
+
                 return grants.finish_write(reply.document, *token, operation == "closeWriter"sv);
             }();
 
@@ -216,6 +325,7 @@ namespace {
                 metadata.set("kind"sv, entry.kind == Kind::File ? "file"sv : "directory"sv);
                 MUST(entries.append(move(metadata)));
             }
+
             JsonObject metadata;
             metadata.set("entries"sv, move(entries));
             metadata.set("done"sv, result.value().done);
@@ -270,11 +380,6 @@ void Bridge::Impl::initialize_file_access()
                 return;
             }
 
-            if (!page->consume_transient_user_activation()) {
-                reply.fail("SecurityError"sv);
-                return;
-            }
-
             FilePicker::Selection selection {};
             if (*operation == "directory"sv)
                 selection.mode = FilePicker::Mode::Directory;
@@ -285,13 +390,28 @@ void Bridge::Impl::initialize_file_access()
                         reply.fail("TypeError"sv);
                         return;
                     }
-                    selection.suggested_name = QString::fromUtf8(
-                        suggested->bytes_as_string_view().characters_without_null_termination(),
-                        suggested->byte_count());
+
+                    selection.suggested_name = qt_string(*suggested);
                 }
             } else if (options.get_bool("multiple"sv).value_or(false)) {
                 selection.mode = FilePicker::Mode::OpenFiles;
             }
+
+            auto configured = apply_picker_options(options, selection);
+            if (configured.is_error()) {
+                reply.fail(configured.error());
+                return;
+            }
+
+            if (!page->consume_transient_user_activation()) {
+                reply.fail("SecurityError"sv);
+                return;
+            }
+
+            // Browser admission consumes the trusted input before any renderer gets a reply.
+            page->traversable().top_level_traversable().for_each_hosting_page([](auto& host) {
+                host.async_consume_user_activation(Web::HTML::UserActivationConsumption::Transient);
+            });
 
             auto started = state.file_picker->request_grants(reply.document, selection,
                 [this, reply](ErrorOr<Vector<FileAccessGrants::Handle>> result) {

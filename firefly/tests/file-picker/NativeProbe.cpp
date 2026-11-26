@@ -319,6 +319,24 @@ int main(int argc, char** argv)
             "abort preserves previous contents");
         saved.close();
 
+        auto race_path = directory.filePath("race-save.txt");
+        auto race_utf8 = race_path.toUtf8();
+        auto race = grants.admit_save(owner, StringView(race_utf8.constData(), race_utf8.size()));
+        require(!race.is_error(), "choose the original save destination");
+        auto race_writer = grants.begin_write(owner, race.value().token, false);
+        require(!race_writer.is_error(), "stage changes before replacing the destination");
+        auto old_race_path = directory.filePath("old-race-save.txt");
+        require(QFile::rename(race_path, old_race_path), "move the original save target");
+        QFile new_race(race_path);
+        require(new_race.open(QIODevice::WriteOnly) && new_race.write("replacement") == 11,
+            "create an unrelated destination under the old name");
+        new_race.close();
+        require(grants.finish_write(owner, race_writer.value(), true).is_error(),
+            "close refuses an externally replaced destination");
+        require(new_race.open(QIODevice::ReadOnly) && new_race.readAll() == "replacement",
+            "refused close preserves the replacement");
+        new_race.close();
+
         writer = grants.begin_write(owner, save_token, false);
         require(!writer.is_error(), "leave writer pending during navigation");
 

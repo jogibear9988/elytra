@@ -17460,6 +17460,27 @@ bindings, C++ implementations, and the renderer IPC adapter passed on macOS.
 A full patched runtime build was started. JavaScript runtime acceptance
 remains open.
 
+## Add writable streams to the filesystem access patch
+
+The second patch now creates a native FileSystemWritableFileStream from
+save grants. Its C++ sink sends ordered byte chunks, truncate and finalization
+requests over the same authenticated provider. The Rust WritableStream
+bindings handle the file subtype in inherited methods, writer construction,
+and readable-stream piping. The native writer keeps staging private until
+close and checks the opened destination identity before publishing. Abort
+and navigation clean up staged files. File pickers also accept grouped
+filters and named start locations.
+
+The initial picker-only macOS Release build and hidden JavaScript WebIDL
+activation checks passed. The expanded patch applies cleanly, generates and
+compiles the C++ binding entry points, and builds the LibWeb Rust bindings
+in Release mode. Full macOS application linking and hidden native
+open/directory/save/write acceptance are in progress. API scope and current
+limits are documented in docs/api/file-input.md. Remaining work includes
+directory iteration and mutations, isSameEntry and resolve, grant queries
+and durable permissions, handle cloning, origin-private storage, worker
+sync handles, and Windows integration.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -80,3 +80,55 @@ selected files. Windows/dialogs have DontShowOnScreen set: the test sends no mou
 or keyboard events to the user's desktop. The BrowserWindow adapter is compiled
 and wired to the same chooser; this gate directly exercises the native view path,
 not the production-helper/JavaScript application/Designer workflow or interactive OS sheet.
+
+## JavaScript file and directory pickers
+
+Firefly's second Ladybird patch adds `showOpenFilePicker()`,
+`showSaveFilePicker()`, and `showDirectoryPicker()`. Call a picker from a
+user gesture in an active secure document whose origin matches the top-level
+document. Cancelling rejects the promise with `AbortError`.
+
+```js
+openButton.addEventListener('click', async () => {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+    });
+    console.log(await (await handle.getFile()).text());
+  } catch (error) {
+    if (error.name !== 'AbortError') throw error;
+  }
+});
+
+saveButton.addEventListener('click', async () => {
+  try {
+    const handle = await window.showSaveFilePicker({ suggestedName: 'export.json' });
+    const stream = await handle.createWritable();
+    await stream.write(JSON.stringify(data, null, 2));
+    await stream.close();
+  } catch (error) {
+    if (error.name !== 'AbortError') throw error;
+  }
+});
+```
+
+| API | Current scope |
+| --- | --- |
+| `showOpenFilePicker()` | One or several files. Filters accept grouped extensions and native MIME mappings. |
+| `showSaveFilePicker()` | One destination with optional suggested filename and filters. |
+| `showDirectoryPicker()` | Read access. Use `getFileHandle(name)` or `getDirectoryHandle(name)` for an existing child. |
+| `FileSystemFileHandle.getFile()` | A snapshot of up to 16 MiB. |
+| `FileSystemFileHandle.createWritable()` | Save handles support `write()`, `seek()`, `truncate()`, `close()`, `abort()`, and writer-based writes. `keepExistingData` copies up to 16 MiB. One writer can be open per handle. |
+
+The browser retains the native paths and grants. Navigation retires grants
+and discards staged writes. Closing a writer publishes its staged contents.
+The named Desktop, Documents, Downloads, Music, Pictures, and Videos start
+locations are available through `startIn`.
+
+Directory enumeration, creation, removal and resolution, writable directory
+access, permission escalation and persistence, structured cloning,
+handle-based start locations and remembered picker IDs, origin-private
+storage, and synchronous worker handles remain open. Windows has no native
+file-grant provider. The compatibility surface is tracked against the
+[File System Standard](https://fs.spec.whatwg.org/) and the
+[File System Access draft](https://wicg.github.io/file-system-access/).

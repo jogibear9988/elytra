@@ -400,6 +400,7 @@ if(APPLE AND TARGET firefly-view-offscreen)
     list(APPEND fork_driver_options --offscreen)
 endif()
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/dialog/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/file-picker/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/gpu/Targets.cmake")
 add_custom_target(
     check-firefly-fork

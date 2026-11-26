@@ -122,7 +122,7 @@ if(FIREFLY_BUILD_RUNTIME)
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/file-access/Session.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/file-access/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/resources/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/resources/Documents.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
@@ -196,6 +196,9 @@ if(FIREFLY_BUILD_RUNTIME)
     # A clean build of the test frontend needs the same runtime helper/resources.
     if(TARGET firefly-view-offscreen)
         add_dependencies(firefly-view-offscreen stage-firefly-runtime-helper check-firefly-js)
+    endif()
+    if(TARGET firefly-file-access-probe)
+        add_dependencies(firefly-file-access-probe stage-firefly-runtime-helper check-firefly-js)
     endif()
     if(TARGET firefly-permission-boundary-probe)
         add_dependencies(firefly-permission-boundary-probe stage-firefly-runtime-helper
