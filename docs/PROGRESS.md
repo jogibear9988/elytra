@@ -17481,6 +17481,14 @@ directory iteration and mutations, isSameEntry and resolve, grant queries
 and durable permissions, handle cloning, origin-private storage, worker
 sync handles, and Windows integration.
 
+## Link the picker reference and rebuild renderer candidates on patch changes
+
+The generated documentation includes the picker reference in the API
+navigation. The macOS Release, Linux renderer, and Windows renderer push
+filters include the Ladybird patch directory so patch-only revisions run
+their renderer gates. The documentation build and workflow YAML checks
+passed. Hosted renderer results are pending for the new patch stack.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

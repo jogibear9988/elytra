@@ -6,6 +6,8 @@ on:
       - '.github/workflows/windows-renderer.yml'
       - '.github/actions/windows-environment/**'
       - 'firefly/**'
+      - 'patches/ladybird/**'
+      - 'tooling/ladybird_patches.py'
       - 'mite/cmake/**'
       - 'mite/runtime/adapters/**'
       - 'tooling/build_renderer.py'

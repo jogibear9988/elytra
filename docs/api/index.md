@@ -172,8 +172,8 @@ window argument/environment snapshots, limits and unsupported process capabiliti
 The [webFrame reference](web-frame.md) covers native isolated-preload browser zoom,
 factor/level conversion, rendering evidence and unsupported frame services.
 
-The [native file input reference](file-input.md) describes the bounded chooser,
-browser FileList data, cancellation and the still-missing native path association.
+The [file picker reference](file-input.md) covers native HTML input, JavaScript
+file and directory pickers, document-bound permissions, and staged writes.
 
 The [node:zlib reference](zlib.md) covers bounded native raw/zlib/gzip Transform streams,
 ordered flush and convenience functions, with explicit unsupported features.

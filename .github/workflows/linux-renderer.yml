@@ -6,6 +6,8 @@ on:
       - '.github/workflows/linux-renderer.yml'
       - '.github/actions/linux-environment/**'
       - 'firefly/**'
+      - 'patches/ladybird/**'
+      - 'tooling/ladybird_patches.py'
       - 'mite/cmake/**'
       - 'mite/runtime/**'
       - 'mite/modules/**'

@@ -11,6 +11,7 @@ on:
         'vendor/ladybird.json',
         'mite/**',
         'firefly/**',
+        'patches/ladybird/**',
         'examples/**',
         'tooling/**'
       ]
