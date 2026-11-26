@@ -973,15 +973,18 @@ index 00000000000..c106f2bce45
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/Provider.cpp b/Libraries/LibWeb/FileSystemAccess/Provider.cpp
 new file mode 100644
-index 00000000000..937467e50de
+index 00000000000..bfbb18b5e87
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Provider.cpp
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,63 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
 +
++#include <LibGC/Root.h>
 +#include <LibJS/Runtime/Error.h>
++#include <LibJS/Runtime/Realm.h>
++#include <LibWeb/DOM/Document.h>
 +#include <LibWeb/FileSystemAccess/Provider.h>
 +#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 +#include <LibWeb/WebIDL/DOMException.h>
@@ -1003,7 +1006,13 @@ index 00000000000..937467e50de
 +        return;
 +    }
 +
-+    s_provider(document, move(options), bytes, move(complete));
++    auto& realm = document.relevant_settings_object().realm();
++    s_provider(document, move(options), bytes,
++        [realm = GC::Root { realm }, complete = move(complete)](JsonObject result, ByteBuffer data) {
++            // Native IPC delivery enters LibWeb from the event loop, outside any running script.
++            HTML::TemporaryExecutionContext context(*realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes);
++            complete(move(result), move(data));
++        });
 +}
 +
 +void reject(WebIDL::Promise const& promise, StringView name)
@@ -1066,10 +1075,10 @@ index 00000000000..e81b0834d91
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/Writable.cpp b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
 new file mode 100644
-index 00000000000..b4808557baa
+index 00000000000..93f13d479d9
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
-@@ -0,0 +1,252 @@
+@@ -0,0 +1,254 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -1084,6 +1093,7 @@ index 00000000000..b4808557baa
 +#include <LibJS/Runtime/Realm.h>
 +#include <LibJS/Runtime/TypedArray.h>
 +#include <LibJS/Runtime/VM.h>
++#include <LibJS/Runtime/ValueInlines.h>
 +#include <LibWeb/Bindings/FileSystemFileHandle.h>
 +#include <LibWeb/Bindings/WrapperWorld.h>
 +#include <LibWeb/DOM/Document.h>
@@ -1285,7 +1295,8 @@ index 00000000000..b4808557baa
 +            }
 +
 +            auto& realm = WebIDL::promise_realm(*promise);
-+            HTML::TemporaryExecutionContext context(realm);
++            HTML::TemporaryExecutionContext context(
++                realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes);
 +            GC::Root session { realm.heap().allocate<WriteSession>(*document, *writer) };
 +            auto sink = JS::Object::create(realm, nullptr);
 +            auto write = GC::create_function<JS::ThrowCompletionOr<JS::Value>(JS::VM&)>(

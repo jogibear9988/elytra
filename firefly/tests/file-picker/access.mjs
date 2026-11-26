@@ -63,6 +63,13 @@ const operations = [
 let step = 0;
 try {
   check(isSecureContext, 'secure fixture origin');
+  const chunks = [];
+  const plain = new WritableStream({ write: (chunk) => chunks.push(chunk) });
+  const writer = new WritableStreamDefaultWriter(plain);
+  await writer.write('base stream');
+  await writer.close();
+  check(chunks.join() === 'base stream', 'ordinary WritableStream still writes');
+
   for (const picker of [showOpenFilePicker, showDirectoryPicker, showSaveFilePicker]) {
     let rejected = false;
     try { await picker(); } catch (error) { rejected = error.name === 'SecurityError'; }

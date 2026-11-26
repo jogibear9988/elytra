@@ -17457,8 +17457,9 @@ for save grants, and the Web WritableStream binding remains to be added.
 
 Both patch application and independent compilation of the generated
 bindings, C++ implementations, and the renderer IPC adapter passed on macOS.
-A full patched runtime build was started. JavaScript runtime acceptance
-remains open.
+A full patched macOS runtime linked. A hidden renderer test confirmed
+the three Window methods are present in a secure context and reject calls
+without activation.
 
 ## Add writable streams to the filesystem access patch
 
@@ -17474,8 +17475,13 @@ filters and named start locations.
 The initial picker-only macOS Release build and hidden JavaScript WebIDL
 activation checks passed. The expanded patch applies cleanly, generates and
 compiles the C++ binding entry points, and builds the LibWeb Rust bindings
-in Release mode. Full macOS application linking and hidden native
-open/directory/save/write acceptance are in progress. API scope and current
+in Release mode. The macOS Release application and owned helper linked. The hidden
+`check-firefly-file-access` fixture exercised all three JavaScript pickers,
+user activation refusal, cancellation, directory-relative reads, filtered
+open, native save, positional writes, truncate, ordinary streams,
+`getWriter()`, `pipeTo()`, close, abort, and final bytes on disk. The native
+picker probe also passed cross-document and replacement-destination refusal,
+navigation retirement, and staged-file cleanup. API scope and current
 limits are documented in docs/api/file-input.md. Remaining work includes
 directory iteration and mutations, isSameEntry and resolve, grant queries
 and durable permissions, handle cloning, origin-private storage, worker
