@@ -102,13 +102,15 @@ bool FileAccessGrants::supported()
 }
 
 ErrorOr<FileAccessGrants::Handle> FileAccessGrants::remember(Document owner, StringView name,
-    Kind kind, NonnullOwnPtr<Core::File> file, bool writable, RefPtr<PrivateBucket> bucket)
+    Kind kind, NonnullOwnPtr<Core::File> file, bool writable, RefPtr<PrivateBucket> bucket,
+    Optional<Vector<String>> private_path)
 {
     auto display_name = TRY(String::from_utf8(name));
     auto token = new_token();
-    TRY(m_entries.try_set(
-        token, Entry { owner, kind, move(file), writable, false, display_name, move(bucket) }));
-    return Handle { move(token), move(display_name), kind };
+    TRY(m_entries.try_set(token,
+        Entry {
+            owner, kind, move(file), writable, false, display_name, move(bucket), private_path }));
+    return Handle { move(token), move(display_name), kind, move(private_path) };
 }
 
 ErrorOr<FileAccessGrants::Entry const*> FileAccessGrants::lookup(
@@ -214,7 +216,8 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_save(Document owner, S
 
 #ifndef AK_OS_WINDOWS
 ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_saved_file(Document owner,
-    StringView name, NonnullOwnPtr<Core::File> parent, bool create, RefPtr<PrivateBucket> bucket)
+    StringView name, NonnullOwnPtr<Core::File> parent, bool create, RefPtr<PrivateBucket> bucket,
+    Optional<Vector<String>> private_path)
 {
     auto target = TRY(adopt_nonnull_own_or_enomem(
         new (nothrow) SaveTarget { move(parent), ByteString { name } }));
@@ -240,7 +243,8 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_saved_file(Document ow
     if (file.is_error())
         return file.release_error();
 
-    auto handle = TRY(remember(owner, name, Kind::File, file.release_value(), true, move(bucket)));
+    auto handle = TRY(remember(
+        owner, name, Kind::File, file.release_value(), true, move(bucket), move(private_path)));
     auto stored = m_save_targets.try_set(handle.token, move(target));
     if (stored.is_error()) {
         release(owner, handle.token);
@@ -732,12 +736,19 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::child(
 
     auto fd = parent->descriptor->fd();
     auto bucket = parent->private_bucket;
+    auto private_path = parent->private_path;
+    if (private_path.has_value()) {
+        if (private_path->size() >= 64)
+            return Error::from_errno(E2BIG);
+        TRY(private_path->try_append(TRY(String::from_utf8(name))));
+    }
+
     if (!bucket)
         TRY(check_public_directory(fd));
     auto writable = parent->writable;
     if (writable && kind == Kind::File)
-        return admit_saved_file(
-            owner, name, TRY(open_entry(fd, "."sv, Kind::Directory)), create, bucket);
+        return admit_saved_file(owner, name, TRY(open_entry(fd, "."sv, Kind::Directory)), create,
+            move(bucket), move(private_path));
 
     if (create) {
         auto basename = ByteString { name };
@@ -755,7 +766,7 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::child(
     auto file = TRY(open_entry(fd, name, kind));
     if (!bucket)
         TRY(check_public_directory(file->fd()));
-    return remember(owner, name, kind, move(file), writable, move(bucket));
+    return remember(owner, name, kind, move(file), writable, move(bucket), move(private_path));
 #endif
 }
 
@@ -953,8 +964,30 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_private(
     auto bucket_directory = TRY(open_private_directory(private_area->fd(), bucket_key));
     auto duplicate = TRY(open_entry(bucket_directory->fd(), "."sv, Kind::Directory));
     auto bucket = TRY(try_make_ref_counted<PrivateBucket>(move(duplicate)));
-    return remember(owner, ""sv, Kind::Directory, move(bucket_directory), true, move(bucket));
+    return remember(owner, ""sv, Kind::Directory, move(bucket_directory), true, move(bucket),
+        Vector<String> {});
 #endif
+}
+
+ErrorOr<FileAccessGrants::Handle> FileAccessGrants::reopen_private(Document owner,
+    StringView profile_data, StringView bucket_key, Vector<String> const& components, Kind kind)
+{
+    if (components.size() > 64 || (components.is_empty() && kind != Kind::Directory))
+        return Error::from_errno(EINVAL);
+
+    // A serialized handle can only be rebound inside the authenticated origin's
+    // bucket. Each component uses the same checked descriptor-relative lookup.
+    auto current = TRY(admit_private(owner, profile_data, bucket_key));
+    ArmedScopeGuard release_current = [&] { release(owner, current.token); };
+    for (size_t i = 0; i < components.size(); ++i) {
+        auto next = TRY(child(owner, current.token, components[i].bytes_as_string_view(),
+            i + 1 == components.size() ? kind : Kind::Directory));
+        release(owner, current.token);
+        current = move(next);
+    }
+
+    release_current.disarm();
+    return current;
 }
 
 bool FileAccessGrants::in_private_area(StringView path) const

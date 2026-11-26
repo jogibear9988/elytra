@@ -17555,6 +17555,25 @@ Structured cloning, durable native permissions, private browsing and
 the Windows provider remain open. Shared-worker and service-worker
 runtime behavior is pending coverage.
 
+## Serialize origin-private file and directory handles
+
+Patch 0002 now integrates the File System handles with Ladybird's
+structured serialization registry. An origin-private handle stores its
+origin, entry kind and relative components. Deserialization checks the
+receiving secure origin. The first filesystem operation opens a fresh
+browser grant in the receiving environment's own bucket. The broker
+uses descriptor-relative lookups and refuses parent traversal and native
+paths. Cloning does not transfer live browser tokens or writable streams.
+
+The patched macOS Release build and hidden probes passed. Coverage
+includes structuredClone identity, a round trip through worker postMessage,
+cross-origin rejection, concurrent first use, removed entries, and
+IndexedDB readback after navigating to a new document. The native probe
+also verifies receiving-document ownership and bucket isolation. The
+two probes now run in the macOS release gate. Native picker handle
+serialization, durable native permissions, private-browsing storage and
+the Windows native provider remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -354,6 +354,24 @@ int main(int argc, char** argv)
         require(grants.sync_write(owner, readonly, 0, "x"sv.bytes()).is_error(),
             "read-only sync lease cannot write");
         grants.close_sync(owner, readonly);
+        auto profile_path = StringView(profile_bytes.constData(), profile_bytes.size());
+        auto reopened = MUST(grants.reopen_private(foreign, profile_path, "fixture-bucket"sv,
+            { "secret.txt"_string }, Grants::Kind::File));
+        require(!grants.read(foreign, reopened.token, 0, 5).is_error(),
+            "same bucket reopens a serialized location under a fresh document grant");
+        require(grants.read(owner, reopened.token, 0, 5).is_error(),
+            "restored grant belongs to the receiving document");
+        require(grants
+                    .reopen_private(owner, profile_path, "different-bucket"sv,
+                        { "secret.txt"_string }, Grants::Kind::File)
+                    .is_error(),
+            "a different origin bucket cannot restore the file");
+        require(grants
+                    .reopen_private(owner, profile_path, "fixture-bucket"sv, { ".."_string },
+                        Grants::Kind::Directory)
+                    .is_error(),
+            "reopening a serialized location rejects parent traversal");
+        grants.release(foreign, reopened.token);
         require(!grants.remove(owner, bucket.value().token, "secret.txt"sv, false).is_error(),
             "remove private test file");
         grants.set_private_area({});

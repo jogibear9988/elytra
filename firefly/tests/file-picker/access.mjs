@@ -43,9 +43,67 @@ try {
 }
 `;
 
+const cloneWorker = `
+self.onmessage = async ({ data }) => {
+  try {
+    const file = await data.getFileHandle('private.txt');
+    const handle = await file.createSyncAccessHandle();
+    try {
+      const buffer = new Uint8Array(7);
+      handle.read(buffer);
+      postMessage({ contents: String.fromCharCode(...buffer), file });
+    } finally {
+      handle.close();
+    }
+  } catch (error) {
+    postMessage({ error: error.name + ': ' + error.message });
+  }
+};
+`;
+
+const storageCode = `
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('file-system-handle-fixture', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('handles');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function persistHandle(handle) {
+  const database = await openDatabase();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction('handles', 'readwrite');
+      transaction.objectStore('handles').put(handle, 'private');
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function restoreHandle() {
+  const database = await openDatabase();
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = database.transaction('handles').objectStore('handles').get('private');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+`;
+
 const source = `<!doctype html><title>LOADING</title>
 <button style="position:absolute;left:20px;top:20px;width:240px;height:50px">Pick</button>
 <script type="module">
+${storageCode}
 const check = (value, message) => { if (!value) throw Error(message); };
 let selected;
 let selectedDirectory;
@@ -169,6 +227,55 @@ try {
   await recheck.close();
   check(await (await privateFile.getFile()).text() === 'private contents', 'quota failure retains file');
 
+  const cloned = structuredClone({ file: privateFile, repeat: privateFile, root: privateRoot });
+  check(cloned.file === cloned.repeat, 'clone retains reference identity');
+  check(cloned.file instanceof FileSystemFileHandle, 'clone retains file prototype');
+  check(cloned.root instanceof FileSystemDirectoryHandle, 'clone retains directory prototype');
+  check(cloned.file !== privateFile && await cloned.file.isSameEntry(privateFile), 'clone points to original file');
+  check((await cloned.root.resolve(cloned.file)).join('/') === 'private.txt', 'clone resolves within cloned directory');
+  check(await (await cloned.file.getFile()).text() === 'private contents', 'clone reads existing file');
+  const fresh = structuredClone(privateFile);
+  const [snapshot, permission] = await Promise.all([fresh.getFile(), fresh.queryPermission()]);
+  check(await snapshot.text() === 'private contents' && permission === 'granted', 'concurrent first use of cloned handle');
+  const removed = structuredClone(await privateRoot.getFileHandle('removed.txt', { create: true }));
+  await privateRoot.removeEntry('removed.txt');
+  let missingFromClone = false;
+  try { await removed.getFile(); } catch (error) { missingFromClone = error.name === 'NotFoundError'; }
+  check(missingFromClone, 'clone reports a removed private entry');
+  await persistHandle(cloned.file);
+
+  const clone = new Worker('/clone-worker.js', { type: 'module' });
+  const clonedInWorker = await new Promise((resolve, reject) => {
+    clone.onmessage = ({ data }) => resolve(data);
+    clone.onmessageerror = () => reject(Error('cloned worker returned an unreadable handle'));
+    clone.onerror = (event) => reject(Error(event.message || 'clone worker failed'));
+    clone.postMessage(cloned.root);
+  }).finally(() => clone.terminate());
+  check(clonedInWorker.contents === 'private', clonedInWorker.error || 'worker reads cloned handle');
+  check(await clonedInWorker.file.isSameEntry(privateFile), 'worker returns a same-origin file handle');
+
+  const targetOrigin = new URL(location.href).searchParams.get('clone-origin');
+  const frame = document.createElement('iframe');
+  frame.hidden = true;
+  frame.src = targetOrigin + '/clone-boundary';
+  const loaded = new Promise((resolve) => frame.addEventListener('load', resolve, { once: true }));
+  document.body.appendChild(frame);
+  await loaded;
+  const rejected = new Promise((resolve) => {
+    const receive = (event) => {
+      if (event.origin === targetOrigin && event.source === frame.contentWindow) {
+        window.removeEventListener('message', receive);
+        resolve(event.data);
+      }
+    };
+    window.addEventListener('message', receive);
+  });
+  frame.contentWindow.postMessage(cloned.file, targetOrigin);
+  check(await rejected === 'clone-blocked', 'different origin cannot deserialize a private file handle');
+  frame.remove();
+
+
+
   check(typeof FileSystemFileHandle.prototype.createSyncAccessHandle === 'undefined', 'sync API hidden in Window');
   const worker = new Worker('/worker.js', { type: 'module' });
   const outcome = await new Promise((resolve, reject) => {
@@ -222,29 +329,39 @@ try {
 </script>`;
 
 const reloaded = `<!doctype html><title>CHECKING</title><script type="module">
+${storageCode}
 try {
   const directory = await navigator.storage.getDirectory();
   const file = await directory.getFileHandle('private.txt');
-  document.title = await (await file.getFile()).text() === 'private contents' ? 'PASS_RELOAD' : 'FAIL:wrong file contents';
+  const stored = await restoreHandle();
+  document.title = stored instanceof FileSystemFileHandle && await stored.isSameEntry(file)
+    && await (await stored.getFile()).text() === 'private contents' ? 'PASS_RELOAD' : 'FAIL:stored handle';
 } catch (error) {
   document.title = error.name === 'NotFoundError' ? 'PASS_ISOLATED' : 'FAIL:' + error.name;
 }
 </script>`;
 
-const otherOrigin = createServer((_request, response) => {
+const otherOrigin = createServer((request, response) => {
   response.setHeader('content-type', 'text/html');
   response.setHeader('connection', 'close');
+  if (request.url === '/clone-boundary') {
+    response.end(`<!doctype html><script>
+      onmessage = () => parent.postMessage('clone-escaped', '*');
+      onmessageerror = () => parent.postMessage('clone-blocked', '*');
+    </script>`);
+    return;
+  }
   response.end(reloaded);
 });
 
 const server = createServer((request, response) => {
   response.setHeader('connection', 'close');
-  if (request.url === '/worker.js') {
+  if (request.url === '/worker.js' || request.url === '/clone-worker.js') {
     response.setHeader('content-type', 'text/javascript');
-    response.end(workerSource);
+    response.end(request.url === '/worker.js' ? workerSource : cloneWorker);
     return;
   }
-  if (request.url !== '/' && request.url !== '/reload') {
+  if (request.url?.split('?')[0] !== '/' && request.url !== '/reload') {
     response.writeHead(404).end();
     return;
   }
@@ -255,8 +372,10 @@ let window;
 try {
   await app.whenReady();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise((resolve) => otherOrigin.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${otherOrigin.address().port}`;
   window = new BrowserWindow({ width: 640, height: 400 });
-  await window.loadURL(`http://127.0.0.1:${server.address().port}/`);
+  await window.loadURL(`http://127.0.0.1:${server.address().port}/?clone-origin=${origin}`);
   let title;
   for (let i = 0; i < 1000; i++) {
     title = window.webContents.getTitle();
@@ -291,8 +410,7 @@ try {
   }
 
   await expectStorageTitle(`http://127.0.0.1:${server.address().port}/reload`, 'PASS_RELOAD');
-  await new Promise((resolve) => otherOrigin.listen(0, '127.0.0.1', resolve));
-  await expectStorageTitle(`http://127.0.0.1:${otherOrigin.address().port}/`, 'PASS_ISOLATED');
+  await expectStorageTitle(`${origin}/`, 'PASS_ISOLATED');
   await new Promise((resolve) => otherOrigin.close(resolve));
   console.log('PASS File System Access WebIDL, native picker IPC, streams and on-disk commit');
   window.destroy();

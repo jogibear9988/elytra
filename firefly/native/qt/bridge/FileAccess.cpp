@@ -33,7 +33,39 @@ namespace {
         result.set("token"sv, handle.token);
         result.set("name"sv, handle.name);
         result.set("kind"sv, handle.kind == Kind::File ? "file"sv : "directory"sv);
+        if (handle.private_path.has_value()) {
+            JsonArray components;
+            for (auto const& name : *handle.private_path)
+                components.must_append(name);
+            result.set("privatePath"sv, move(components));
+        }
+
         return result;
+    }
+
+    ErrorOr<FileAccessGrants::Handle> private_directory_or_handle(FileAccessGrants& grants,
+        Document document, StringView profile_data, StringView bucket_key, StringView operation,
+        JsonObject const& options)
+    {
+        if (operation == "getPrivateDirectory"sv)
+            return grants.admit_private(document, profile_data, bucket_key);
+
+        auto kind = options.get_string("kind"sv);
+        auto encoded_path = options.get_array("privatePath"sv);
+        if (!kind.has_value() || (*kind != "file"sv && *kind != "directory"sv)
+            || !encoded_path.has_value() || encoded_path->size() > 64)
+            return Error::from_errno(EINVAL);
+
+        Vector<String> components;
+        for (size_t i = 0; i < encoded_path->size(); ++i) {
+            auto const& value = encoded_path->at(i);
+            if (!value.is_string())
+                return Error::from_errno(EINVAL);
+            TRY(components.try_append(value.as_string()));
+        }
+
+        return grants.reopen_private(document, profile_data, bucket_key, components,
+            *kind == "file"sv ? Kind::File : Kind::Directory);
     }
 
     StringView file_access_error(Error const& error)
@@ -625,7 +657,8 @@ namespace {
         }
 
         auto position = worker_grants->find(&worker);
-        if (*operation == "getPrivateDirectory"sv) {
+        if (operation->bytes_as_string_view().is_one_of(
+                "getPrivateDirectory"sv, "reopenPrivate"sv)) {
             auto storage_key = WebView::obtain_a_storage_key(*settings);
             if (!storage_key.has_value()) {
                 reply.fail("SecurityError"sv);
@@ -649,8 +682,9 @@ namespace {
                     = worker_grants->emplace(&worker, std::make_unique<FileAccessGrants>()).first;
             }
 
-            auto directory = position->second->admit_private(WorkerReply::document,
-                StringView(canonical_data.constData(), canonical_data.size()), key.view());
+            auto directory = private_directory_or_handle(*position->second, WorkerReply::document,
+                StringView(canonical_data.constData(), canonical_data.size()), key.view(),
+                operation->bytes_as_string_view(), options);
             if (directory.is_error())
                 reply.fail(directory.error());
             else
@@ -738,7 +772,8 @@ void Bridge::Impl::initialize_file_access()
         }
 
         picker.grants().set_private_area(private_area.release_value());
-        if (*operation == "getPrivateDirectory"sv) {
+        if (operation->bytes_as_string_view().is_one_of(
+                "getPrivateDirectory"sv, "reopenPrivate"sv)) {
             if (page->client().session().is_private() == WebView::IsPrivate::Yes) {
                 reply.fail("NotSupportedError"sv);
                 return;
@@ -755,8 +790,9 @@ void Bridge::Impl::initialize_file_access()
             auto canonical_key = storage_key->to_string();
             auto key = WebView::Profile::routing_identifier(canonical_key.bytes_as_string_view());
             auto canonical_bytes = canonical_data.toUtf8();
-            auto root = picker.grants().admit_private(reply.document,
-                StringView(canonical_bytes.constData(), canonical_bytes.size()), key.view());
+            auto root = private_directory_or_handle(picker.grants(), reply.document,
+                StringView(canonical_bytes.constData(), canonical_bytes.size()), key.view(),
+                operation->bytes_as_string_view(), options);
             if (root.is_error())
                 reply.fail(root.error());
             else

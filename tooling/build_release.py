@@ -244,6 +244,8 @@ def main():
                 "check-firefly-title-bar",
                 "check-firefly-web-request",
                 "check-firefly-worker-fetch",
+                "check-firefly-file-picker",
+                "check-firefly-file-access",
             ]
         )
     run("cmake", "--build", "build/renderer", "--target", *native_services, "--parallel", args.jobs)

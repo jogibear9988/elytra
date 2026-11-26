@@ -19,6 +19,7 @@ public:
         String token;
         String name;
         Kind kind;
+        Optional<Vector<String>> private_path;
     };
 
     struct DirectoryEntry {
@@ -49,6 +50,9 @@ public:
     ErrorOr<Handle> admit_save(Document, StringView absolute_path);
 
     ErrorOr<Handle> admit_private(Document, StringView profile_data, StringView bucket_key);
+
+    ErrorOr<Handle> reopen_private(Document, StringView profile_data, StringView bucket_key,
+        Vector<String> const& components, Kind);
 
     void set_private_area(String directory)
     {
@@ -125,6 +129,7 @@ private:
         bool write_denied { false };
         String name;
         RefPtr<PrivateBucket> private_bucket;
+        Optional<Vector<String>> private_path;
     };
 
     struct Cursor;
@@ -135,10 +140,10 @@ private:
     static constexpr size_t max_scans_per_page = 256;
 
     ErrorOr<Handle> remember(Document, StringView name, Kind, NonnullOwnPtr<Core::File>,
-        bool writable = false, RefPtr<PrivateBucket> = {});
+        bool writable = false, RefPtr<PrivateBucket> = {}, Optional<Vector<String>> = {});
 
     ErrorOr<Handle> admit_saved_file(Document, StringView name, NonnullOwnPtr<Core::File> parent,
-        bool create, RefPtr<PrivateBucket> = {});
+        bool create, RefPtr<PrivateBucket> = {}, Optional<Vector<String>> = {});
 
     ErrorOr<Entry const*> lookup(Document, String const& token) const;
 

@@ -1,3 +1,102 @@
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/cpp.rs b/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/cpp.rs
+index 859547c0c7a..45422ba25f1 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/cpp.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/cpp.rs
+@@ -46,6 +46,16 @@ unsafe extern "C" {
+     fn web_structured_serialize_realm_agent_cluster(realm: *mut c_void, agent_cluster: &mut u64) -> bool;
+ 
+     fn web_structured_serialize_cpp_interface_name(object: *mut c_void, interface_name: &mut u16) -> bool;
++    fn web_structured_serialize_file_system_handle(
++        object: *mut c_void,
++        context: *mut c_void,
++        write: extern "C" fn(*mut c_void, ak::Span<'_, u8>),
++    ) -> bool;
++    fn web_structured_deserialize_file_system_handle(
++        interface_name: u16,
++        realm: *mut c_void,
++        locator: ak::Span<'_, u8>,
++    ) -> *mut c_void;
+ 
+     fn web_structured_serialize_is_exposed(interface_name: u16, realm: *mut c_void) -> bool;
+ 
+@@ -383,3 +393,34 @@ impl Drop for SharedPixelBuffers<'_> {
+         }
+     }
+ }
++
++pub(crate) fn serialize_file_system_handle(
++    object: Gc<Object>,
++    writer: &mut crate::bindings::structured_data::SerializationWriter<'_, '_>,
++) -> bool {
++    extern "C" fn write(context: *mut c_void, bytes: ak::Span<'_, u8>) {
++        // SAFETY: The caller lends its writer for exactly this synchronous call.
++        let writer = unsafe { &mut *context.cast::<crate::bindings::structured_data::SerializationWriter<'_, '_>>() };
++        writer.write_bytes(bytes.as_slice());
++    }
++
++    // SAFETY: The object and writer are live throughout the call.
++    unsafe {
++        web_structured_serialize_file_system_handle(object_into_abi(object), core::ptr::from_mut(writer).cast(), write)
++    }
++}
++
++pub(crate) fn deserialize_file_system_handle(
++    interface_name: u16,
++    realm: Gc<Realm>,
++    locator: &[u8],
++) -> Option<Gc<Object>> {
++    // SAFETY: The realm is live and the locator is borrowed for the duration of the call.
++    unsafe {
++        object_from_abi(web_structured_deserialize_file_system_handle(
++            interface_name,
++            realm.as_ptr().cast(),
++            ak::Span::new(locator),
++        ))
++    }
++}
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/mod.rs b/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/mod.rs
+index 92a6a3e7fa4..b9a458b754d 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/mod.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/mod.rs
+@@ -993,6 +993,11 @@ impl<'memory> Serializer<'_, '_, 'memory> {
+                     SerializableSteps::QuotaExceededError => {
+                         quota_exceeded_error::serialization_steps(&QuotaExceededErrorFields::of(object), serialized);
+                     }
++                    SerializableSteps::FileSystemHandle => {
++                        if !cpp::serialize_file_system_handle(object, &mut SerializationWriter::new(self)) {
++                            return Err(data_clone_error("This filesystem handle cannot be serialized"));
++                        }
++                    }
+                     SerializableSteps::RTCEncodedAudioFrame => {
+                         crate::webrtc::rtc_encoded_audio_frame::serialization_steps(
+                             object,
+@@ -1582,6 +1587,14 @@ impl Deserializer<'_, '_, '_> {
+                         let fields = quota_exceeded_error::deserialization_steps(self.serialized)?;
+                         Value::from_object(quota_exceeded_error::create(realm, &fields))
+                     }
++                    SerializableSteps::FileSystemHandle => {
++                        let locator = SerializationReader::new(self).read_borrowed_bytes()?;
++                        let object =
++                            cpp::deserialize_file_system_handle(interface_name, realm, locator).ok_or_else(|| {
++                                data_clone_error("This filesystem handle cannot be restored in this origin")
++                            })?;
++                        Value::from_object(object)
++                    }
+                     SerializableSteps::RTCEncodedAudioFrame => {
+                         Value::from_object(crate::webrtc::rtc_encoded_audio_frame::deserialization_steps(
+                             realm,
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/serializable.rs b/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/serializable.rs
+index 8e7fb81267e..f33b19d7145 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/serializable.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/html/structured_serialize/serializable.rs
+@@ -23,6 +23,7 @@ pub(crate) enum SerializableSteps {
+     DOMException,
+     QuotaExceededError,
+     RTCEncodedAudioFrame,
++    FileSystemHandle,
+ }
+ 
+ // The version after every serializable object's interface identifier in a storage record. Changing it requires
 diff --git a/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_manager.rs b/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_manager.rs
 index ab6cf5e77de..a12c574353d 100644
 --- a/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_manager.rs
@@ -426,7 +525,7 @@ index d9b2b106a2a..7ecd8a3a10a 100644
      Fetch/BodyInit.cpp
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.h
 new file mode 100644
-index 00000000000..20bec99fce1
+index 00000000000..95822516350
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandle.h
 @@ -0,0 +1,35 @@
@@ -452,7 +551,7 @@ index 00000000000..20bec99fce1
 +
 +    WebIDL::ExceptionOr<void> remove_entry(
 +        Utf16String const&, Bindings::FileSystemRemoveOptions const&, GC::Ref<WebIDL::Promise>);
-+    WebIDL::ExceptionOr<void> resolve(FileSystemHandle const&, GC::Ref<WebIDL::Promise>);
++    WebIDL::ExceptionOr<void> resolve(FileSystemHandle&, GC::Ref<WebIDL::Promise>);
 +
 +private:
 +    friend class FileSystemHandle;
@@ -493,10 +592,10 @@ index 00000000000..3ca01f8d8dc
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandleAsyncIterator.cpp b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandleAsyncIterator.cpp
 new file mode 100644
-index 00000000000..039d97c48df
+index 00000000000..c3322021c98
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemDirectoryHandleAsyncIterator.cpp
-@@ -0,0 +1,175 @@
+@@ -0,0 +1,173 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -586,8 +685,7 @@ index 00000000000..039d97c48df
 +    JsonObject options;
 +    if (!m_cursor.has_value()) {
 +        options.set("operation"sv, "iterate"sv);
-+        options.set("token"sv, m_directory->token());
-+        request(m_directory->environment(), move(options), [self = GC::Root { *this }, promise = move(promise)](JsonObject result, ByteBuffer) mutable {
++        m_directory->request_handle(move(options), [self = GC::Root { *this }, promise = move(promise)](JsonObject result, ByteBuffer) mutable {
 +            if (reject_if_failed(*promise, result))
 +                return;
 +            auto cursor = result.get_string("cursor"sv);
@@ -641,10 +739,9 @@ index 00000000000..039d97c48df
 +
 +    JsonObject options;
 +    options.set("operation"sv, "child"sv);
-+    options.set("token"sv, m_directory->token());
 +    options.set("name"sv, *name);
 +    options.set("kind"sv, *kind);
-+    request(m_directory->environment(), move(options), [self = GC::Root { *this }, promise = move(promise)](JsonObject result, ByteBuffer) mutable {
++    m_directory->request_handle(move(options), [self = GC::Root { *this }, promise = move(promise)](JsonObject result, ByteBuffer) mutable {
 +        if (auto error = result.get_string("error"sv); error.has_value() && *error == "NotFoundError"sv) {
 +            self->step(move(promise));
 +            return;
@@ -753,7 +850,7 @@ index 00000000000..51b63503e11
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl
 new file mode 100644
-index 00000000000..ca956f318eb
+index 00000000000..d08eaf47dd9
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemFileHandle.idl
 @@ -0,0 +1,14 @@
@@ -765,7 +862,7 @@ index 00000000000..ca956f318eb
 +dictionary FileSystemCreateWritableOptions {
 +    boolean keepExistingData = false;
 +};
-+[SecureContext, Exposed=(Window,Worker)]
++[SecureContext, Exposed=(Window,Worker), Serializable]
 +interface FileSystemFileHandle : FileSystemHandle {
 +    [CreatesPromise] Promise<File> getFile();
 +    [Exposed=DedicatedWorker, CreatesPromise] Promise<FileSystemSyncAccessHandle> createSyncAccessHandle(optional FileSystemCreateSyncAccessHandleOptions options = {});
@@ -773,10 +870,10 @@ index 00000000000..ca956f318eb
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
 new file mode 100644
-index 00000000000..0d6a27e270f
+index 00000000000..a652b455dcb
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,76 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -784,6 +881,7 @@ index 00000000000..0d6a27e270f
 +#pragma once
 +
 +#include <AK/JsonObject.h>
++#include <LibWeb/FileSystemAccess/Provider.h>
 +#include <LibGC/Weak.h>
 +#include <LibWeb/Bindings/FileSystemHandle.h>
 +#include <LibWeb/Bindings/Wrappable.h>
@@ -808,7 +906,11 @@ index 00000000000..0d6a27e270f
 +        return m_name;
 +    }
 +
-+    WebIDL::ExceptionOr<void> is_same_entry(FileSystemHandle const&, GC::Ref<WebIDL::Promise>);
++    WebIDL::ExceptionOr<void> is_same_entry(FileSystemHandle&, GC::Ref<WebIDL::Promise>);
++
++    Optional<String> serialize_private_handle() const;
++    static GC::Ptr<FileSystemHandle> deserialize_private_handle(HTML::EnvironmentSettingsObject&,
++        StringView payload, Bindings::FileSystemHandleKind);
 +
 +    Optional<String> token_for(DOM::Document const&) const;
 +
@@ -831,10 +933,9 @@ index 00000000000..0d6a27e270f
 +        return *m_environment;
 +    }
 +
-+    String const& token() const
-+    {
-+        return m_token;
-+    }
++    using TokenCallback = Function<void(ErrorOr<String>, JsonObject)>;
++    void with_native_token(TokenCallback);
++    void request_handle(JsonObject, Completion, FileSystemHandle* other = nullptr);
 +
 +private:
 +    WebIDL::ExceptionOr<void> permission_operation(StringView,
@@ -843,6 +944,7 @@ index 00000000000..0d6a27e270f
 +    GC::Ref<HTML::EnvironmentSettingsObject> m_environment;
 +    GC::Weak<HTML::EnvironmentSettingsObject> m_weak_environment;
 +    String m_token;
++    Optional<JsonArray> m_private_path;
 +    Utf16String m_name;
 +    Bindings::FileSystemHandleKind m_kind;
 +};
@@ -850,7 +952,7 @@ index 00000000000..0d6a27e270f
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.idl b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.idl
 new file mode 100644
-index 00000000000..91c9c66ac91
+index 00000000000..c46aa681f58
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.idl
 @@ -0,0 +1,15 @@
@@ -860,7 +962,7 @@ index 00000000000..91c9c66ac91
 +
 +enum FileSystemHandleKind { "file", "directory" };
 +
-+[SecureContext, Exposed=(Window,Worker)]
++[SecureContext, Exposed=(Window,Worker), Serializable]
 +interface FileSystemHandle {
 +    readonly attribute FileSystemHandleKind kind;
 +    readonly attribute USVString name;
@@ -978,10 +1080,10 @@ index 00000000000..31e2eaea85b
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/Handles.cpp b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
 new file mode 100644
-index 00000000000..2f4391e547a
+index 00000000000..af3f6501c05
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
-@@ -0,0 +1,331 @@
+@@ -0,0 +1,448 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -1030,7 +1132,7 @@ index 00000000000..2f4391e547a
 +{
 +    // GC finalization cannot enter the JavaScript VM or create new roots.
 +    // Drop native leases from the event loop while the document is still live.
-+    if (Core::EventLoop::is_running()) {
++    if (!m_token.is_empty() && Core::EventLoop::is_running()) {
 +        Core::deferred_invoke([environment = move(m_weak_environment), token = move(m_token)] {
 +            auto target = environment.ptr();
 +            if (!target)
@@ -1049,6 +1151,8 @@ index 00000000000..2f4391e547a
 +{
 +    if (&document.relevant_settings_object() != m_environment.ptr())
 +        return {};
++    if (m_token.is_empty())
++        return {};
 +    return m_token;
 +}
 +
@@ -1066,12 +1170,131 @@ index 00000000000..2f4391e547a
 +        return nullptr;
 +
 +    auto& heap = GC::Heap::the();
++    GC::Ptr<FileSystemHandle> handle;
 +    if (*kind == "file"sv)
-+        return heap.allocate<FileSystemFileHandle>(environment, *token, Utf16String::from_utf8(*name));
-+    if (*kind == "directory"sv)
-+        return heap.allocate<FileSystemDirectoryHandle>(
-+            environment, *token, Utf16String::from_utf8(*name));
-+    return nullptr;
++        handle = heap.allocate<FileSystemFileHandle>(environment, *token, Utf16String::from_utf8(*name));
++    else if (*kind == "directory"sv)
++        handle = heap.allocate<FileSystemDirectoryHandle>(environment, *token, Utf16String::from_utf8(*name));
++    if (auto path = metadata.get_array("privatePath"sv); handle && path.has_value())
++        handle->m_private_path = *path;
++    return handle;
++}
++
++Optional<String> FileSystemHandle::serialize_private_handle() const
++{
++    if (!m_private_path.has_value())
++        return {};
++    auto origin = environment().origin();
++    if (origin.is_opaque())
++        return {};
++
++    JsonObject metadata;
++    metadata.set("origin"sv, origin.serialize());
++    metadata.set("path"sv, *m_private_path);
++    return metadata.serialized();
++}
++
++GC::Ptr<FileSystemHandle> FileSystemHandle::deserialize_private_handle(HTML::EnvironmentSettingsObject& environment,
++    StringView payload, Bindings::FileSystemHandleKind kind)
++{
++    // No native path, permission, or live browser token is part of the record.
++    // Limit storage records before parsing or starting any filesystem operation.
++    if (payload.length() > 128 * 1024 || !HTML::is_secure_context(environment))
++        return nullptr;
++    auto parsed = JsonValue::from_string(payload);
++    if (parsed.is_error() || !parsed.value().is_object())
++        return nullptr;
++    auto const& metadata = parsed.value().as_object();
++    auto origin = metadata.get_string("origin"sv);
++    auto path = metadata.get_array("path"sv);
++    auto target = environment.origin();
++    if (!origin.has_value() || target.is_opaque() || *origin != target.serialize()
++        || !path.has_value() || path->size() > 64 || (path->is_empty() && kind == Bindings::FileSystemHandleKind::File))
++        return nullptr;
++
++    String name;
++    for (size_t i = 0; i < path->size(); ++i) {
++        auto const& value = path->at(i);
++        if (!value.is_string())
++            return nullptr;
++        name = value.as_string();
++        auto component = name.bytes_as_string_view();
++        if (component.is_empty() || component.is_one_of("."sv, ".."sv)
++            || component.length() > 255 || component.contains('/') || component.contains('\\')
++            || component.contains('\0') || component.starts_with(".elytra-file-"sv))
++            return nullptr;
++    }
++
++    JsonObject grant;
++    grant.set("name"sv, name);
++    grant.set("kind"sv, kind == Bindings::FileSystemHandleKind::File ? "file"sv : "directory"sv);
++    grant.set("token"sv, String {});
++    grant.set("privatePath"sv, path.release_value());
++    return from_grant(environment, grant);
++}
++
++void FileSystemHandle::with_native_token(TokenCallback callback)
++{
++    if (!m_token.is_empty()) {
++        callback(m_token, {});
++        return;
++    }
++
++    JsonObject options;
++    if (!m_private_path.has_value()) {
++        options.set("error"sv, "InvalidStateError"sv);
++        callback(Error::from_errno(EBADF), move(options));
++        return;
++    }
++
++    options.set("operation"sv, "reopenPrivate"sv);
++    options.set("kind"sv, kind() == Bindings::FileSystemHandleKind::File ? "file"sv : "directory"sv);
++    options.set("privatePath"sv, *m_private_path);
++    request(environment(), move(options), [self = GC::Root { *this }, callback = move(callback)](JsonObject result, ByteBuffer) {
++        auto token = result.get_string("token"sv);
++        if (!token.has_value()) {
++            if (!result.has("error"sv))
++                result.set("error"sv, "UnknownError"sv);
++            callback(Error::from_errno(EIO), move(result));
++            return;
++        }
++
++        if (self->m_token.is_empty()) {
++            self->m_token = token.release_value();
++        } else {
++            JsonObject release;
++            release.set("operation"sv, "release"sv);
++            release.set("token"sv, token.release_value());
++            request(self->environment(), move(release), [](JsonObject, ByteBuffer) { });
++        }
++        callback(self->m_token, {});
++    });
++}
++
++void FileSystemHandle::request_handle(JsonObject options, Completion completion, FileSystemHandle* other)
++{
++    with_native_token([self = GC::Root { *this }, other = GC::Root { other },
++                          options = move(options), completion = move(completion)](ErrorOr<String> token, JsonObject error) mutable {
++        if (token.is_error()) {
++            completion(move(error), {});
++            return;
++        }
++        options.set("token"sv, token.release_value());
++        if (!other) {
++            request(self->environment(), move(options), move(completion));
++            return;
++        }
++
++        other->with_native_token([self = move(self), options = move(options), completion = move(completion)](
++                                      ErrorOr<String> token, JsonObject error) mutable {
++            if (token.is_error()) {
++                completion(move(error), {});
++                return;
++            }
++            options.set("other"sv, token.release_value());
++            request(self->environment(), move(options), move(completion));
++        });
++    });
 +}
 +
 +FileSystemFileHandle::FileSystemFileHandle(HTML::EnvironmentSettingsObject& environment, String token, Utf16String name)
@@ -1145,7 +1368,13 @@ index 00000000000..2f4391e547a
 +
 +WebIDL::ExceptionOr<void> FileSystemFileHandle::get_file(GC::Ref<WebIDL::Promise> promise)
 +{
-+    read_file(GC::Root { *this }, environment(), token(), GC::Root { promise }, {});
++    with_native_token([self = GC::Root { *this }, promise = GC::Root { promise }](ErrorOr<String> token, JsonObject error) {
++        if (token.is_error()) {
++            (void)reject_if_failed(*promise, error);
++            return;
++        }
++        read_file(self, self->environment(), token.release_value(), promise, {});
++    });
 +    return {};
 +}
 +
@@ -1166,11 +1395,10 @@ index 00000000000..2f4391e547a
 +{
 +    JsonObject options;
 +    options.set("operation"sv, "child"sv);
-+    options.set("token"sv, token());
 +    options.set("kind"sv, kind);
 +    options.set("create"sv, create);
 +    options.set("name"sv, name.to_well_formed_utf8());
-+    request(environment(), move(options),
++    request_handle(move(options),
 +        [environment = GC::Root { environment() }, promise = GC::Root { promise }](
 +            JsonObject result, ByteBuffer) {
 +            if (reject_if_failed(*promise, result))
@@ -1192,7 +1420,7 @@ index 00000000000..2f4391e547a
 +}
 +
 +WebIDL::ExceptionOr<void> FileSystemHandle::is_same_entry(
-+    FileSystemHandle const& other, GC::Ref<WebIDL::Promise> promise)
++    FileSystemHandle& other, GC::Ref<WebIDL::Promise> promise)
 +{
 +    if (&environment() != &other.environment()) {
 +        WebIDL::resolve_promise(*promise, JS::Value(false));
@@ -1201,10 +1429,7 @@ index 00000000000..2f4391e547a
 +
 +    JsonObject options;
 +    options.set("operation"sv, "sameEntry"sv);
-+    options.set("token"sv, token());
-+    options.set("other"sv, other.token());
-+    request(
-+        environment(), move(options), [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
++    request_handle(move(options), [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
 +            if (reject_if_failed(*promise, result))
 +                return;
 +
@@ -1212,7 +1437,7 @@ index 00000000000..2f4391e547a
 +                WebIDL::resolve_promise(*promise, JS::Value(*same));
 +            else
 +                reject(*promise, "UnknownError"sv);
-+        });
++        }, &other);
 +    return {};
 +}
 +
@@ -1236,10 +1461,8 @@ index 00000000000..2f4391e547a
 +{
 +    JsonObject options;
 +    options.set("operation"sv, operation);
-+    options.set("token"sv, token());
 +    options.set("writable"sv, descriptor.mode == Bindings::FileSystemPermissionMode::Readwrite);
-+    request(
-+        environment(), move(options), [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
++    request_handle(move(options), [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
 +            if (reject_if_failed(*promise, result))
 +                return;
 +
@@ -1261,10 +1484,9 @@ index 00000000000..2f4391e547a
 +{
 +    JsonObject metadata;
 +    metadata.set("operation"sv, "remove"sv);
-+    metadata.set("token"sv, token());
 +    metadata.set("name"sv, name.to_well_formed_utf8());
 +    metadata.set("recursive"sv, options.recursive);
-+    request(environment(), move(metadata),
++    request_handle(move(metadata),
 +        [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
 +            if (!reject_if_failed(*promise, result))
 +                WebIDL::resolve_promise(*promise);
@@ -1273,7 +1495,7 @@ index 00000000000..2f4391e547a
 +}
 +
 +WebIDL::ExceptionOr<void> FileSystemDirectoryHandle::resolve(
-+    FileSystemHandle const& other, GC::Ref<WebIDL::Promise> promise)
++    FileSystemHandle& other, GC::Ref<WebIDL::Promise> promise)
 +{
 +    if (&environment() != &other.environment()) {
 +        WebIDL::resolve_promise(*promise, JS::js_null());
@@ -1282,10 +1504,7 @@ index 00000000000..2f4391e547a
 +
 +    JsonObject options;
 +    options.set("operation"sv, "resolve"sv);
-+    options.set("token"sv, token());
-+    options.set("other"sv, other.token());
-+    request(
-+        environment(), move(options), [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
++    request_handle(move(options), [promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
 +            if (reject_if_failed(*promise, result))
 +                return;
 +
@@ -1308,7 +1527,7 @@ index 00000000000..2f4391e547a
 +                    realm.vm(), Utf16String::from_utf8(component.as_string())));
 +            }
 +            WebIDL::resolve_promise(*promise, JS::Array::create_from(realm, components.span()));
-+        });
++        }, &other);
 +    return {};
 +}
 +
@@ -1695,10 +1914,10 @@ index 00000000000..229da3f2a0d
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/SyncAccess.cpp b/Libraries/LibWeb/FileSystemAccess/SyncAccess.cpp
 new file mode 100644
-index 00000000000..31911e956e2
+index 00000000000..2c0b79bf674
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/SyncAccess.cpp
-@@ -0,0 +1,189 @@
+@@ -0,0 +1,187 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -1869,31 +2088,29 @@ index 00000000000..31911e956e2
 +{
 +    JsonObject metadata;
 +    metadata.set("operation"sv, "syncOpen"sv);
-+    metadata.set("token"sv, token());
 +    metadata.set("mode"sv, Bindings::idl_enum_to_string(options.mode).to_well_formed_utf8());
-+    auto result = request_from_worker(environment(), move(metadata));
-+    if (!result.has_value() || !result->metadata.is_object())
-+        return error("NotSupportedError"sv);
-+    auto& response = result->metadata.as_object();
-+    if (reject_if_failed(*promise, response))
-+        return {};
-+    auto token = response.get_string("sync"sv);
-+    if (!token.has_value())
-+        return error("UnknownError"sv);
-+
-+    auto& realm = WebIDL::promise_realm(*promise);
-+    auto handle = realm.create<FileSystemSyncAccessHandle>(environment(), *this, *token);
-+    WebIDL::resolve_promise(*promise, Bindings::wrap(Bindings::host_defined_wrapper_world(realm), realm, handle));
++    request_handle(move(metadata), [self = GC::Root { *this }, promise = GC::Root { promise }](JsonObject response, ByteBuffer) {
++        if (reject_if_failed(*promise, response))
++            return;
++        auto token = response.get_string("sync"sv);
++        if (!token.has_value()) {
++            reject(*promise, "UnknownError"sv);
++            return;
++        }
++        auto& realm = WebIDL::promise_realm(*promise);
++        auto handle = realm.create<FileSystemSyncAccessHandle>(self->environment(), *self, *token);
++        WebIDL::resolve_promise(*promise, Bindings::wrap(Bindings::host_defined_wrapper_world(realm), realm, handle));
++    });
 +    return {};
 +}
 +
 +}
 diff --git a/Libraries/LibWeb/FileSystemAccess/Writable.cpp b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
 new file mode 100644
-index 00000000000..dc3a383d915
+index 00000000000..4206728199f
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Writable.cpp
-@@ -0,0 +1,258 @@
+@@ -0,0 +1,257 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -2099,9 +2316,8 @@ index 00000000000..dc3a383d915
 +{
 +    JsonObject metadata;
 +    metadata.set("operation"sv, "beginWrite"sv);
-+    metadata.set("token"sv, token());
 +    metadata.set("keepExistingData"sv, options.keep_existing_data);
-+    request(environment(), move(metadata),
++    request_handle(move(metadata),
 +        [environment = GC::Root { environment() }, handle = GC::Root { *this },
 +            promise = GC::Root { promise }](JsonObject result, ByteBuffer) {
 +            if (reject_if_failed(*promise, result))
@@ -2152,6 +2368,74 @@ index 00000000000..dc3a383d915
 +}
 +
 +}
+diff --git a/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp b/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp
+index 840d0f6e639..15d25dc538f 100644
+--- a/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp
++++ b/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp
+@@ -21,6 +21,9 @@
+ #include <LibWeb/Bindings/PrincipalHostDefined.h>
+ #include <LibWeb/Bindings/RustSerialization.h>
+ #include <LibWeb/Bindings/Wrappable.h>
++#include <LibWeb/Bindings/WrapperWorld.h>
++#include <LibWeb/Bindings/PrincipalHostDefined.h>
++#include <LibWeb/FileSystemAccess/FileSystemHandle.h>
+ #include <LibWeb/HTML/ImageBitmap.h>
+ #include <LibWeb/HTML/Scripting/Environments.h>
+ #include <LibWeb/HTML/StructuredSerialize.h>
+@@ -50,6 +53,8 @@ bool web_structured_serialize_current_settings_object_cross_origin_isolated_capa
+ bool web_structured_serialize_realm_agent_cluster(void* realm, u64* agent_cluster);
+ 
+ bool web_structured_serialize_cpp_interface_name(JSObject*, u16* interface_name);
++bool web_structured_serialize_file_system_handle(JSObject*, void*, void (*)(void*, ReadonlyBytes));
++JSObject* web_structured_deserialize_file_system_handle(u16 interface_name, void* realm, ReadonlyBytes);
+ bool web_structured_serialize_is_exposed(u16 interface_name, void* realm);
+ 
+ ImageBitmapSharedPixels* web_structured_serialize_gather_image_bitmap_pixels(JSObject* const* transfer_list, size_t count, u32 buffer_index, int* shared_memory, size_t* size);
+@@ -147,6 +152,44 @@ bool web_structured_serialize_cpp_interface_name(JSObject* object, u16* interfac
+     return true;
+ }
+ 
++bool web_structured_serialize_file_system_handle(JSObject* object, void* context, void (*write)(void*, ReadonlyBytes))
++{
++    auto* wrappable = Bindings::wrappable_impl_from(JS::HostABI::object_from_abi(object));
++    auto* handle = dynamic_cast<FileSystemAccess::FileSystemHandle*>(wrappable);
++    if (!handle)
++        return false;
++    auto locator = handle->serialize_private_handle();
++    if (!locator.has_value())
++        return false;
++
++    write(context, locator->bytes());
++    return true;
++}
++
++JSObject* web_structured_deserialize_file_system_handle(u16 interface_name, void* raw_realm, ReadonlyBytes locator)
++{
++    auto& realm = realm_from_abi(raw_realm);
++    auto& environment = Bindings::principal_host_defined_environment_settings_object(realm);
++    Bindings::FileSystemHandleKind kind;
++    switch (static_cast<Bindings::InterfaceName>(interface_name)) {
++    case Bindings::InterfaceName::FileSystemDirectoryHandle:
++        kind = Bindings::FileSystemHandleKind::Directory;
++        break;
++    case Bindings::InterfaceName::FileSystemFileHandle:
++        kind = Bindings::FileSystemHandleKind::File;
++        break;
++    default:
++        return nullptr;
++    }
++
++    auto handle = FileSystemAccess::FileSystemHandle::deserialize_private_handle(environment, StringView(locator), kind);
++    if (!handle)
++        return nullptr;
++
++    auto wrapper = Bindings::wrap(Bindings::host_defined_wrapper_world(realm), realm, GC::Ref { *handle });
++    return JS::HostABI::object_to_abi(wrapper.ptr());
++}
++
+ bool web_structured_serialize_is_exposed(u16 interface_name, void* realm)
+ {
+     return Bindings::is_exposed(static_cast<Bindings::InterfaceName>(interface_name), realm_from_abi(realm));
 diff --git a/Libraries/LibWeb/HTML/Window.h b/Libraries/LibWeb/HTML/Window.h
 index d5ab5df6866..ef2627ef998 100644
 --- a/Libraries/LibWeb/HTML/Window.h
@@ -2531,6 +2815,45 @@ index 405fa78a90d..e502b559d22 100644
  
  
  def write_async_iterator_prototype_implementation(
+diff --git a/Meta/Generators/libweb_bindings/rust_structured_serialize.py b/Meta/Generators/libweb_bindings/rust_structured_serialize.py
+index 4485afc62f5..7a17a91c260 100644
+--- a/Meta/Generators/libweb_bindings/rust_structured_serialize.py
++++ b/Meta/Generators/libweb_bindings/rust_structured_serialize.py
+@@ -24,6 +24,8 @@ STORAGE_IDENTIFIERS = (
+     "DOMRectReadOnly",
+     "File",
+     "FileList",
++    "FileSystemDirectoryHandle",
++    "FileSystemFileHandle",
+     "ImageBitmap",
+     "ImageData",
+     "Module",
+@@ -32,6 +34,7 @@ STORAGE_IDENTIFIERS = (
+ 
+ # The serializable interfaces implemented in C++ whose steps run in Rust.
+ CPP_INTERFACES_WITH_RUST_STEPS = ("DOMException", "QuotaExceededError", "RTCEncodedAudioFrame")
++FILE_SYSTEM_INTERFACES = ("FileSystemDirectoryHandle", "FileSystemFileHandle")
+ 
+ 
+ def write_rust_serializable_dispatch(out: TextIO, interfaces: List[Interface], values: Dict[str, int]) -> None:
+@@ -50,7 +53,7 @@ pub(crate) mod serializable_objects {
+     use crate::html::structured_serialize::serializable::{SerializableRegistryEntry, SerializableSteps};
+ 
+     const CPP_INTERFACES: &[u16] = &["""
+-        + ", ".join(str(values[name]) for name in CPP_INTERFACES_WITH_RUST_STEPS)
++        + ", ".join(str(values[name]) for name in CPP_INTERFACES_WITH_RUST_STEPS + FILE_SYSTEM_INTERFACES)
+         + """];
+ 
+     pub(crate) fn rust_interface_name(object: Gc<Object>) -> Option<u16> {
+@@ -133,6 +136,8 @@ pub(crate) mod serializable_objects {
+     )
+     for name in CPP_INTERFACES_WITH_RUST_STEPS:
+         out.write(f"            {values[name]} => SerializableSteps::{name},\n")
++    for name in FILE_SYSTEM_INTERFACES:
++        out.write(f"            {values[name]} => SerializableSteps::FileSystemHandle,\n")
+     for interface in rust_interfaces:
+         out.write(f"            {values[interface.name]} => SerializableSteps::Rust,\n")
+     out.write(
 diff --git a/Services/WebContent/PageClient.h b/Services/WebContent/PageClient.h
 index 99d4e7036ea..5193dc1f044 100644
 --- a/Services/WebContent/PageClient.h

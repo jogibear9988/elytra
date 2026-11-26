@@ -60,7 +60,6 @@ Directory upload, drag/drop provenance, general main-process dialog APIs, File c
 identity, large files, native file-handle/streaming transfer and measured low-overhead
 file transport remain separate work. The picker currently copies complete bounded
 file contents through IPC; it is not a zero-copy or performance acceptance result.
-The complete Code-OSS preload and workbench still do not run.
 
 ## Validation
 
@@ -167,12 +166,21 @@ the file directly. Explicit offsets are optional. The handle otherwise
 uses its current file position. Use `{ mode: 'read-only' }` to open a
 shared read-only handle.
 
+#### Saving and sharing origin-private handles
+
+Origin-private file and directory handles support `structuredClone()`,
+same-origin `postMessage()`, and IndexedDB. The receiving environment
+opens a fresh capability on its first filesystem operation. An IndexedDB
+handle can be read after navigation. Deleting the underlying entry makes
+operations that reopen it fail with `NotFoundError`. A different origin
+cannot deserialize the handle.
+
 ### Remaining compatibility
 
-Handle structured cloning for `postMessage()` and IndexedDB, persistent
-permissions for native picks, and private-browsing storage remain open.
-Windows has no native file-grant provider. Dedicated-worker paths are
-covered by the macOS fixture. Shared-worker, service-worker, and Linux
-runtime coverage remain open. The compatibility surface is tracked against
-the [File System Standard](https://fs.spec.whatwg.org/) and the
+Structured cloning and persistent permissions for native picker handles
+remain open, as does private-browsing storage. Windows has no native
+file-grant provider. Dedicated-worker paths are covered by the macOS
+fixture. Shared-worker, service-worker, and Linux runtime coverage remain
+open. The compatibility surface is tracked against the
+[File System Standard](https://fs.spec.whatwg.org/) and the
 [File System Access draft](https://wicg.github.io/file-system-access/).
