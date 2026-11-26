@@ -9,6 +9,7 @@ const workerSource = `
 const check = (value, message) => { if (!value) throw Error(message); };
 try {
   const directory = await navigator.storage.getDirectory();
+  const initialUsage = (await navigator.storage.estimate()).usage;
   const file = await directory.getFileHandle('worker.txt', { create: true });
   const access = await file.createSyncAccessHandle();
   check(access instanceof FileSystemSyncAccessHandle, 'sync handle type');
@@ -36,6 +37,7 @@ try {
   check(denied, 'read-only sync handle rejects writes');
   readonly.close();
   check(await (await file.getFile()).text() === 'work', 'async read sees sync commit');
+  check((await navigator.storage.estimate()).usage >= initialUsage + 4, 'worker estimate includes private file bytes');
   globalThis.retainedAccess = await file.createSyncAccessHandle();
   postMessage({ ok: true });
 } catch (error) {
@@ -246,12 +248,15 @@ const operations = [
 let step = 0;
 try {
   check(isSecureContext, 'secure fixture origin');
+  const initialUsage = (await navigator.storage.estimate()).usage;
   const privateRoot = await navigator.storage.getDirectory();
   check(privateRoot instanceof FileSystemDirectoryHandle && privateRoot.name === '', 'origin-private root');
   const privateFile = await privateRoot.getFileHandle('private.txt', { create: true });
   const privateStream = await privateFile.createWritable();
   await privateStream.write('private contents');
   await privateStream.close();
+  check((await navigator.storage.estimate()).usage >= initialUsage + 'private contents'.length,
+    'Window estimate includes private file bytes');
   let quota = false;
   const large = await privateFile.createWritable();
   try { await large.truncate(65 * 1024 * 1024); }

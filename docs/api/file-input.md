@@ -136,7 +136,9 @@ In a secure same-origin window, `await navigator.storage.getDirectory()`
 returns the writable root for that origin and browsing profile without a
 picker. The root persists across navigation. Different origins use separate
 roots. Native picker grants cannot enter the private backing directory.
-The current limit is 64 MiB per origin, including staged writes.
+The filesystem stores up to 64 MiB per origin, including staged writes.
+`navigator.storage.estimate()` includes those bytes in the origin's
+reported storage usage from a Window or dedicated worker.
 
 #### Dedicated workers
 

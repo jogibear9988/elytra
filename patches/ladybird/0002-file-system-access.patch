@@ -136,6 +136,47 @@ index ab6cf5e77de..a12c574353d 100644
      pub(crate) fn create(vm: &Vm, realm: Gc<Realm>) -> Ref<StorageManager> {
          allocate(vm, |_| StorageManager { realm })
      }
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_shelf.rs b/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_shelf.rs
+index 6307a9efeee..66cd02c52bd 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_shelf.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/storage_api/storage_shelf.rs
+@@ -12,6 +12,7 @@ use core::ffi::c_void;
+ use libjs_rust::api::{EmbedderCell, EmbedderClass, EmbedderValue, Gc, Trace, Vm};
+ 
+ use crate::bindings::environment_settings_object::CppEnvironmentSettingsObject;
++use crate::bindings::global_object::window_from_global_object;
+ use crate::storage_api::storage_bottle::{StorageBucket, StorageType};
+ use crate::storage_api::storage_key::{StorageKey, obtain_a_storage_key};
+ 
+@@ -47,10 +48,16 @@ impl StorageShelf {
+         // 1. Let shelf be a new storage shelf.
+         STORAGE_SHELF_CLASS.allocate(vm, |_| {
+             // 2. Set shelf’s bucket map["default"] to the result of running create a storage bucket with type.
+-            let bucket_map = vec![(
+-                "default".to_owned(),
+-                StorageBucket::create(vm, environment, key, storage_type),
+-            )];
++            // A worker estimates usage through the same browser storage jar,
++            // without constructing a Window-only localStorage mirror.
++            let bucket_map = if window_from_global_object(environment.global_object()).is_some() {
++                vec![(
++                    "default".to_owned(),
++                    StorageBucket::create(vm, environment, key, storage_type),
++                )]
++            } else {
++                Vec::new()
++            };
+             // 3. Return shelf.
+             StorageShelf {
+                 environment: environment.clone(),
+@@ -88,7 +95,6 @@ pub(crate) fn obtain_a_local_storage_shelf(
+     // To obtain a local storage shelf, given an environment settings object environment, return the result of running
+     // obtain a storage shelf with the user agent’s storage shed, environment, and "local".
+ 
+-    // FIXME: This should be implemented in a way that works for Workers.
+     let key = obtain_a_storage_key(environment)?;
+ 
+     // AD-HOC: The user agent's storage shed is kept by the browser process, in a StorageJar. This shelf is a transient
 diff --git a/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs b/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs
 index d99bebc362f..3b1471ea6a2 100644
 --- a/Libraries/LibWeb/Bindings/Rust/src/streams/exports.rs
@@ -2522,7 +2563,7 @@ index a9bc5371907..57ef64366fa 100644
      virtual void page_did_remove_blob_url_entries(HTML::EnvironmentSettingsObject const&, [[maybe_unused]] Vector<Utf16String> const& urls) { }
      virtual void page_did_retain_blob_url_token([[maybe_unused]] HTML::CrossProcessId navigable_id, [[maybe_unused]] URL::BlobURLEntry::Token token) { }
 diff --git a/Libraries/LibWeb/StorageAPI/StorageManager.cpp b/Libraries/LibWeb/StorageAPI/StorageManager.cpp
-index f49393af721..3d472686477 100644
+index f49393af721..27a0daef051 100644
 --- a/Libraries/LibWeb/StorageAPI/StorageManager.cpp
 +++ b/Libraries/LibWeb/StorageAPI/StorageManager.cpp
 @@ -6,12 +6,18 @@
@@ -2544,7 +2585,7 @@ index f49393af721..3d472686477 100644
  
  namespace Web::StorageAPI {
  
-@@ -22,11 +28,13 @@ void* web_rust_storage_api_create_storage_manager(JSVM*, void* realm);
+@@ -22,18 +28,53 @@ void* web_rust_storage_api_create_storage_manager(JSVM*, void* realm);
  
  // Declared on the Rust side in Bindings/Rust/src/storage_api/storage_shelf.rs.
  u64 web_storage_api_storage_usage(HTML::EnvironmentSettingsObject*);
@@ -2559,10 +2600,21 @@ index f49393af721..3d472686477 100644
  }
  
  u64 web_storage_api_storage_usage(HTML::EnvironmentSettingsObject* environment)
-@@ -36,4 +44,31 @@ u64 web_storage_api_storage_usage(HTML::EnvironmentSettingsObject* environment)
-     return window.page().client().page_did_request_storage_usage(environment->id);
- }
- 
+ {
+-    // FIXME: This should be implemented in a way that works for Workers.
+-    auto& window = HTML::relevant_window(environment->global_object());
+-    return window.page().client().page_did_request_storage_usage(environment->id);
++    if (auto* window = HTML::window_from_global_object(environment->global_object()))
++        return window->page().client().page_did_request_storage_usage(environment->id);
++
++    JsonObject options;
++    options.set("operation"sv, "getStorageUsage"sv);
++    auto response = FileSystemAccess::request_from_worker(*environment, move(options));
++    if (!response.has_value() || !response->metadata.is_object())
++        return 0;
++    return response->metadata.as_object().get_u64("usage"sv).value_or(0);
++}
++
 +void* web_storage_api_get_directory(void* raw_realm)
 +{
 +    auto& realm = *static_cast<JS::Realm*>(raw_realm);
@@ -2588,21 +2640,26 @@ index f49393af721..3d472686477 100644
 +                    Bindings::host_defined_wrapper_world(realm), realm, GC::Ref { *handle }));
 +        });
 +    return promise.ptr();
-+}
-+
+ }
+ 
  }
 diff --git a/Libraries/LibWeb/StorageAPI/StorageManager.idl b/Libraries/LibWeb/StorageAPI/StorageManager.idl
-index 54bca5897e5..3c4e02c1331 100644
+index 54bca5897e5..76fca18671d 100644
 --- a/Libraries/LibWeb/StorageAPI/StorageManager.idl
 +++ b/Libraries/LibWeb/StorageAPI/StorageManager.idl
-@@ -2,6 +2,7 @@
+@@ -2,10 +2,10 @@
  [SecureContext, Exposed=(Window,Worker), ImplementedIn=Rust]
  interface StorageManager {
      [FIXME] Promise<boolean> persisted();
 +    Promise<FileSystemDirectoryHandle> getDirectory();
      [FIXME, Exposed=Window] Promise<boolean> persist();
  
-     // FIXME: This should also be exposed to Workers
+-    // FIXME: This should also be exposed to Workers
+-    [Exposed=Window] Promise<StorageEstimate> estimate();
++    Promise<StorageEstimate> estimate();
+ };
+ 
+ // https://storage.spec.whatwg.org/#dictdef-storageestimate
 diff --git a/Libraries/LibWeb/Streams/FileSystemWritableFileStream.h b/Libraries/LibWeb/Streams/FileSystemWritableFileStream.h
 new file mode 100644
 index 00000000000..e5a00ce210c
@@ -2654,6 +2711,60 @@ index c466d9fde06..cd6e69ace4d 100644
  libweb_js_bindings(EventTiming/EventCounts)
  libweb_js_bindings(EventTiming/PerformanceEventTiming)
  libweb_js_bindings(Fetch/Body)
+diff --git a/Libraries/LibWebView/StorageJar.cpp b/Libraries/LibWebView/StorageJar.cpp
+index 02a30a10edb..d1fa86f4f91 100644
+--- a/Libraries/LibWebView/StorageJar.cpp
++++ b/Libraries/LibWebView/StorageJar.cpp
+@@ -5,7 +5,9 @@
+  */
+ 
+ #include <AK/Array.h>
++#include <AK/NeverDestroyed.h>
+ #include <AK/NonnullOwnPtr.h>
++#include <AK/NumericLimits.h>
+ #include <AK/StdLibExtras.h>
+ #include <LibDatabase/Database.h>
+ #include <LibWebView/StorageAreaRegistry.h>
+@@ -164,11 +166,23 @@ Vector<Utf16String> StorageJar::get_all_keys(StorageEndpointType storage_endpoin
+     return m_transient_storage.get_keys(storage_endpoint, storage_key);
+ }
+ 
++static NeverDestroyed<StorageJar::AdditionalUsageProvider> s_additional_usage_provider;
++
++void StorageJar::set_additional_usage_provider(AdditionalUsageProvider provider)
++{
++    *s_additional_usage_provider = move(provider);
++}
++
+ u64 StorageJar::usage(String const& storage_key)
+ {
+-    if (m_persisted_storage.has_value())
+-        return m_persisted_storage->usage(storage_key);
+-    return m_transient_storage.usage(storage_key);
++    auto usage = m_persisted_storage.has_value()
++        ? m_persisted_storage->usage(storage_key)
++        : m_transient_storage.usage(storage_key);
++    if (*s_additional_usage_provider) {
++        auto additional = (*s_additional_usage_provider)(*this, storage_key);
++        usage += min(additional, NumericLimits<u64>::max() - usage);
++    }
++    return usage;
+ }
+ 
+ u64 StorageJar::bottle_usage(StorageEndpointType storage_endpoint, String const& storage_key)
+diff --git a/Libraries/LibWebView/StorageJar.h b/Libraries/LibWebView/StorageJar.h
+index 6c3feb7962f..3efeea49f2b 100644
+--- a/Libraries/LibWebView/StorageJar.h
++++ b/Libraries/LibWebView/StorageJar.h
+@@ -88,6 +88,8 @@ public:
+     Vector<Utf16String> get_all_keys(StorageEndpointType storage_endpoint, String const& storage_key);
+     // Reads don't reach the jar once a process mirrors a bottle, so a mirror marks the bottle accessed when it loads it.
+     void mark_accessed(StorageEndpointType storage_endpoint, String const& storage_key);
++    using AdditionalUsageProvider = Function<u64(StorageJar const&, String const& storage_key)>;
++    static void set_additional_usage_provider(AdditionalUsageProvider);
+     u64 usage(String const& storage_key);
+     u64 bottle_usage(StorageEndpointType storage_endpoint, String const& storage_key);
+     Requests::CacheSizes estimate_storage_size_accessed_since(UnixDateTime since) const;
 diff --git a/Libraries/LibWebView/WebWorkerClient.cpp b/Libraries/LibWebView/WebWorkerClient.cpp
 index 8010d3e9e3d..b633d496cc7 100644
 --- a/Libraries/LibWebView/WebWorkerClient.cpp

@@ -355,6 +355,10 @@ int main(int argc, char** argv)
             "read-only sync lease cannot write");
         grants.close_sync(owner, readonly);
         auto profile_path = StringView(profile_bytes.constData(), profile_bytes.size());
+        require(MUST(Grants::private_usage(profile_path, "fixture-bucket"sv)) == 5,
+            "origin-private estimate includes the committed file size");
+        require(MUST(Grants::private_usage(profile_path, "unused-bucket"sv)) == 0,
+            "estimate of an unused origin does not create or read another bucket");
         auto reopened = MUST(grants.reopen_private(foreign, profile_path, "fixture-bucket"sv,
             { "secret.txt"_string }, Grants::Kind::File));
         require(!grants.read(foreign, reopened.token, 0, 5).is_error(),

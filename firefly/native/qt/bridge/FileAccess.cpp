@@ -14,6 +14,7 @@
 #include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/CanonicalWindow.h>
 #include <LibWebView/Profile.h>
+#include <LibWebView/StorageJar.h>
 #include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebContentPage.h>
 #include <LibWebView/WebWorkerClient.h>
@@ -551,6 +552,20 @@ namespace {
         }
     };
 
+    u64 profile_private_usage(WebView::StorageJar const& jar, String const& storage_key)
+    {
+        if (&jar != WebView::Application::default_session().storage_jar.ptr())
+            return 0;
+        auto const& path = WebView::Application::profile().paths().data;
+        auto canonical = QFileInfo(QString::fromUtf8(path.characters(), path.length()))
+                             .canonicalFilePath()
+                             .toUtf8();
+        auto key = WebView::Profile::routing_identifier(storage_key.bytes_as_string_view());
+        auto usage = FileAccessGrants::private_usage(
+            StringView(canonical.constData(), canonical.size()), key.view());
+        return usage.is_error() ? 0 : usage.value();
+    }
+
     // The worker connection has its own authenticated environment and token namespace.
     // Restoring a reference binds a new grant under that environment's origin key.
     NeverDestroyed<std::unordered_map<WebView::WebWorkerClient*, std::unique_ptr<FileAccessGrants>>>
@@ -655,18 +670,14 @@ namespace {
     {
         WorkerReply reply;
         auto settings = worker.hosted_environment(environment);
+        auto session = worker.session();
         auto top = settings.has_value() ? settings->top_level_origin() : Optional<URL::Origin> {};
-        if (!worker.session() || !settings.has_value()
+        if (!session || !settings.has_value()
             || (top.has_value() && !settings->origin().is_same_origin(*top))
             || settings->origin().is_opaque()
             || Web::SecureContexts::is_origin_potentially_trustworthy(settings->origin())
                 != Web::SecureContexts::Trustworthiness::PotentiallyTrustworthy) {
             reply.fail("SecurityError"sv);
-            return reply.take();
-        }
-
-        if (!FileAccessGrants::supported() || worker.is_private() == WebView::IsPrivate::Yes) {
-            reply.fail("NotSupportedError"sv);
             return reply.take();
         }
 
@@ -681,6 +692,24 @@ namespace {
             || (!operation->bytes_as_string_view().is_one_of("write"sv, "syncWrite"sv)
                 && !bytes.is_empty())) {
             reply.fail("TypeError"sv);
+            return reply.take();
+        }
+
+        if (*operation == "getStorageUsage"sv) {
+            auto key = WebView::obtain_a_storage_key(*settings);
+            if (!key.has_value()) {
+                reply.fail("SecurityError"sv);
+                return reply.take();
+            }
+
+            JsonObject result;
+            result.set("usage"sv, session->storage_jar->usage(key->to_string()));
+            reply.send(move(result));
+            return reply.take();
+        }
+
+        if (!FileAccessGrants::supported() || worker.is_private() == WebView::IsPrivate::Yes) {
+            reply.fail("NotSupportedError"sv);
             return reply.take();
         }
 
@@ -753,6 +782,7 @@ namespace {
 
 void Bridge::Impl::initialize_file_access()
 {
+    WebView::StorageJar::set_additional_usage_provider(profile_private_usage);
     WebView::WebWorkerClient::set_file_access_provider(
         receive_worker_request, [](auto& worker) { worker_grants->erase(&worker); });
     Bytes::set_file_access_request_receiver([this](
@@ -1049,6 +1079,7 @@ void Bridge::Impl::initialize_file_access()
 
 void Bridge::Impl::stop_file_access()
 {
+    WebView::StorageJar::set_additional_usage_provider({});
     WebView::WebWorkerClient::set_file_access_provider({}, {});
     worker_grants->clear();
     Bytes::set_file_access_request_receiver({});

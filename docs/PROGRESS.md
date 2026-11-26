@@ -17607,6 +17607,21 @@ worker reading a remembered native file. Windows, private-browsing storage,
 native drag-and-drop handles, and shared-worker, service-worker, and
 Linux runtime coverage remain open.
 
+## Include origin-private file bytes in storage estimates
+
+Window and worker storage estimates now use the browser's authenticated
+storage key and include the origin-private filesystem. The ordinary
+profile contributes its bounded file usage to the existing storage-jar
+estimate. A worker requests usage through its own browser connection
+without initializing Window-only storage mirrors.
+
+The macOS Release build, native grant probe and hidden browser fixture
+passed. They cover Window and worker usage growth after writes and a
+zero estimate for an unused bucket. The existing picker, stream, cloning
+and permission checks still pass. Documentation generation and link
+validation passed. The remaining platform and drag-and-drop work is
+listed in the API reference.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

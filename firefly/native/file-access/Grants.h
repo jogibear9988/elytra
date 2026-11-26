@@ -55,6 +55,8 @@ public:
 
     ErrorOr<Handle> admit_save(Document, StringView absolute_path);
 
+    static ErrorOr<u64> private_usage(StringView profile_data, StringView bucket_key);
+
     ErrorOr<Handle> admit_private(Document, StringView profile_data, StringView bucket_key);
 
     ErrorOr<Handle> reopen_private(Document, StringView profile_data, StringView bucket_key,

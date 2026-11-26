@@ -942,12 +942,13 @@ static ErrorOr<void> measure_bucket(
     }
 }
 
+static constexpr u64 private_storage_quota = 64 * 1024 * 1024;
+
 ErrorOr<void> FileAccessGrants::PrivateBucket::check_growth(u64 growth) const
 {
-    constexpr u64 quota = 64 * 1024 * 1024;
-    if (growth > quota)
+    if (growth > private_storage_quota)
         return Error::from_errno(ENOSPC);
-    auto bytes = quota - growth;
+    auto bytes = private_storage_quota - growth;
     size_t entries = 4095;
     auto volume = TRY(Core::System::fstat(directory->fd())).st_dev;
     return measure_bucket(directory->fd(), volume, 64, entries, bytes);
@@ -966,6 +967,37 @@ static ErrorOr<NonnullOwnPtr<Core::File>> open_private_directory(int parent, Str
     return directory;
 }
 #endif
+
+ErrorOr<u64> FileAccessGrants::private_usage(StringView profile_data, StringView bucket_key)
+{
+#ifdef AK_OS_WINDOWS
+    (void)profile_data;
+    (void)bucket_key;
+    return 0;
+#else
+    if (!is_entry_name(bucket_key))
+        return Error::from_errno(EINVAL);
+    auto profile = TRY(open_entry(AT_FDCWD, profile_data, Kind::Directory));
+    auto measured = [&]() -> ErrorOr<u64> {
+        auto private_area = TRY(open_entry(profile->fd(), "ElytraOriginFiles"sv, Kind::Directory));
+        auto bucket = TRY(open_entry(private_area->fd(), bucket_key, Kind::Directory));
+        auto status = TRY(Core::System::fstat(bucket->fd()));
+        size_t entries = 4095;
+        auto remaining = private_storage_quota;
+        auto result = measure_bucket(bucket->fd(), status.st_dev, 64, entries, remaining);
+        if (result.is_error()) {
+            if (result.error().is_errno() && result.error().code() == ENOSPC)
+                return private_storage_quota;
+            return result.release_error();
+        }
+
+        return private_storage_quota - remaining;
+    }();
+    if (measured.is_error() && measured.error().is_errno() && measured.error().code() == ENOENT)
+        return 0;
+    return measured;
+#endif
+}
 
 ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_private(
     Document owner, StringView profile_data, StringView bucket_key)
