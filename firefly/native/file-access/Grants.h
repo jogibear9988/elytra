@@ -43,7 +43,7 @@ public:
 
     // Only native picker completions supply paths. Subsequent requests operate
     // on opaque tokens and single child names relative to an opened directory.
-    ErrorOr<Handle> admit(Document, StringView absolute_path, Kind);
+    ErrorOr<Handle> admit(Document, StringView absolute_path, Kind, bool writable = false);
 
     ErrorOr<Handle> admit_save(Document, StringView absolute_path);
 
@@ -55,7 +55,23 @@ public:
 
     ErrorOr<void> finish_write(Document, String const& writer, bool commit);
 
-    ErrorOr<Handle> child(Document, String const& token, StringView name, Kind);
+    ErrorOr<Handle> child(
+        Document, String const& token, StringView name, Kind, bool create = false);
+
+    ErrorOr<void> remove(Document, String const& directory, StringView name, bool recursive);
+
+    ErrorOr<bool> is_same_entry(Document, String const&, String const&) const;
+
+    ErrorOr<Optional<Vector<String>>> resolve(
+        Document, String const& directory, String const& descendant) const;
+
+    ErrorOr<StringView> permission(Document, String const& token, bool writable) const;
+
+    ErrorOr<String> name(Document, String const& token) const;
+
+    ErrorOr<String> directory_hint(Document, String const& token) const;
+
+    ErrorOr<void> set_write_permission(Document, String const& token, bool granted);
 
     ErrorOr<ByteBuffer> read(Document, String const& token, u64 offset, size_t count) const;
 
@@ -74,6 +90,9 @@ private:
         Document owner;
         Kind kind;
         NonnullOwnPtr<Core::File> descriptor;
+        bool writable;
+        bool write_denied { false };
+        String name;
     };
 
     struct Cursor;
@@ -82,7 +101,13 @@ private:
     static constexpr size_t max_cursors = 32;
     static constexpr size_t max_scans_per_page = 256;
 
-    ErrorOr<Handle> remember(Document, StringView name, Kind, NonnullOwnPtr<Core::File>);
+    ErrorOr<Handle> remember(
+        Document, StringView name, Kind, NonnullOwnPtr<Core::File>, bool writable = false);
+
+    ErrorOr<Handle> admit_saved_file(
+        Document, StringView name, NonnullOwnPtr<Core::File> parent, bool create);
+
+    ErrorOr<Entry const*> lookup(Document, String const& token) const;
 
     ErrorOr<Writer*> lookup_writer(Document, String const& token);
 

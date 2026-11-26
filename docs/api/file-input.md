@@ -116,19 +116,23 @@ saveButton.addEventListener('click', async () => {
 | --- | --- |
 | `showOpenFilePicker()` | One or several files. Filters accept grouped extensions and native MIME mappings. |
 | `showSaveFilePicker()` | One destination with optional suggested filename and filters. |
-| `showDirectoryPicker()` | Read access. Use `getFileHandle(name)` or `getDirectoryHandle(name)` for an existing child. |
+| `showDirectoryPicker()` | Read access by default. Pass `{ mode: 'readwrite' }` to select a folder for editing. |
+| `FileSystemDirectoryHandle` | Async iteration with `entries()`, `keys()`, `values()`, and `for await…of`. Use `getFileHandle()` and `getDirectoryHandle()` with `{ create: true }` on writable folders. `removeEntry()` supports recursive removal. `resolve()` returns an array of relative components or `null`. |
+| `FileSystemHandle` | Use `isSameEntry()` to compare native entries. `queryPermission()` reports the current permission and `requestPermission()` can prompt for write access after a user gesture. |
 | `FileSystemFileHandle.getFile()` | A snapshot of up to 16 MiB. |
-| `FileSystemFileHandle.createWritable()` | Save handles support `write()`, `seek()`, `truncate()`, `close()`, `abort()`, and writer-based writes. `keepExistingData` copies up to 16 MiB. One writer can be open per handle. |
+| `FileSystemFileHandle.createWritable()` | Writable handles support `write()`, `seek()`, `truncate()`, `close()`, `abort()`, and writer-based writes. `keepExistingData` copies up to 16 MiB. One writer can be open per handle. |
 
 The browser retains the native paths and grants. Navigation retires grants
 and discards staged writes. Closing a writer publishes its staged contents.
 The named Desktop, Documents, Downloads, Music, Pictures, and Videos start
-locations are available through `startIn`.
+locations are available through `startIn`. A handle from the current document
+can also provide the initial location. Each view remembers selections by
+origin and picker ID until the view closes. Write grants are document-scoped.
+Recursive removal stays on the selected filesystem and has a depth and entry
+limit.
 
-Directory enumeration, creation, removal and resolution, writable directory
-access, permission escalation and persistence, structured cloning,
-handle-based start locations and remembered picker IDs, origin-private
-storage, and synchronous worker handles remain open. Windows has no native
+Persistent permissions, structured cloning, origin-private storage, and
+synchronous worker handles remain open. Windows has no native
 file-grant provider. The compatibility surface is tracked against the
 [File System Standard](https://fs.spec.whatwg.org/) and the
 [File System Access draft](https://wicg.github.io/file-system-access/).

@@ -66,6 +66,11 @@ namespace {
             case ENOTDIR:
                 fail("TypeMismatchError"sv);
                 break;
+            case ENOTEMPTY:
+            case EEXIST:
+            case EXDEV:
+                fail("InvalidModificationError"sv);
+                break;
             case EACCES:
             case EPERM:
                 fail("NotAllowedError"sv);
@@ -201,6 +206,17 @@ namespace {
         return {};
     }
 
+    bool consume_picker_activation(WebView::WebContentPage& page)
+    {
+        if (!page.consume_transient_user_activation())
+            return false;
+
+        page.traversable().top_level_traversable().for_each_hosting_page([](auto& host) {
+            host.async_consume_user_activation(Web::HTML::UserActivationConsumption::Transient);
+        });
+        return true;
+    }
+
     void dispatch_handle_operation(Reply const& reply, FileAccessGrants& grants,
         StringView operation, JsonObject const& options, ReadonlyBytes bytes)
     {
@@ -256,6 +272,73 @@ namespace {
             return;
         }
 
+        if (operation == "queryPermission"sv) {
+            auto result = grants.permission(
+                reply.document, *token, options.get_bool("writable"sv).value_or(false));
+            if (result.is_error()) {
+                reply.fail(result.error());
+                return;
+            }
+
+            JsonObject metadata;
+            metadata.set("permission"sv, result.value());
+            reply.send(move(metadata));
+            return;
+        }
+
+        if (operation.is_one_of("sameEntry"sv, "resolve"sv)) {
+            auto other = options.get_string("other"sv);
+            if (!other.has_value() || other->byte_count() != 36) {
+                reply.fail("TypeError"sv);
+                return;
+            }
+
+            JsonObject metadata;
+            if (operation == "sameEntry"sv) {
+                auto result = grants.is_same_entry(reply.document, *token, *other);
+                if (result.is_error()) {
+                    reply.fail(result.error());
+                    return;
+                }
+
+                metadata.set("same"sv, result.value());
+            } else {
+                auto result = grants.resolve(reply.document, *token, *other);
+                if (result.is_error()) {
+                    reply.fail(result.error());
+                    return;
+                }
+
+                if (result.value().has_value()) {
+                    JsonArray path;
+                    for (auto const& component : *result.value())
+                        MUST(path.append(component));
+                    metadata.set("path"sv, move(path));
+                } else {
+                    metadata.set("path"sv, JsonValue {});
+                }
+            }
+
+            reply.send(move(metadata));
+            return;
+        }
+
+        if (operation == "remove"sv) {
+            auto name = options.get_string("name"sv);
+            if (!name.has_value()) {
+                reply.fail("TypeError"sv);
+                return;
+            }
+
+            auto result = grants.remove(reply.document, *token, name->bytes_as_string_view(),
+                options.get_bool("recursive"sv).value_or(false));
+            if (result.is_error())
+                reply.fail(result.error());
+            else
+                reply.send({});
+            return;
+        }
+
         if (operation == "child"sv) {
             auto name = options.get_string("name"sv);
             auto kind = options.get_string("kind"sv);
@@ -266,7 +349,8 @@ namespace {
             }
 
             auto result = grants.child(reply.document, *token, name->bytes_as_string_view(),
-                *kind == "file"sv ? Kind::File : Kind::Directory);
+                *kind == "file"sv ? Kind::File : Kind::Directory,
+                options.get_bool("create"sv).value_or(false));
             if (result.is_error())
                 reply.fail(result.error());
             else
@@ -339,107 +423,195 @@ namespace {
 
 void Bridge::Impl::initialize_file_access()
 {
-    Bytes::set_file_access_request_receiver(
-        [this](IPC::Stub& stub, Bytes::FileAccessMessage message) {
-            auto& client
-                = static_cast<WebView::WebContentClient&>(static_cast<WebContentClientStub&>(stub));
-            auto* page = client.page(Web::PageId { message.page });
-            if (!page || !page->is_open())
-                return;
+    Bytes::set_file_access_request_receiver([this](
+                                                IPC::Stub& stub, Bytes::FileAccessMessage message) {
+        auto& client
+            = static_cast<WebView::WebContentClient&>(static_cast<WebContentClientStub&>(stub));
+        auto* page = client.page(Web::PageId { message.page });
+        if (!page || !page->is_open())
+            return;
 
-            Reply reply { page, { message.document_namespace, message.document_local },
-                message.request };
-            auto id = permission_contents(*page, reply.document);
-            if (!id || !accessible_origin(*page, reply.document)) {
-                reply.fail("SecurityError"sv);
-                return;
-            }
+        Reply reply { page, { message.document_namespace, message.document_local },
+            message.request };
+        auto id = permission_contents(*page, reply.document);
+        if (!id || !accessible_origin(*page, reply.document)) {
+            reply.fail("SecurityError"sv);
+            return;
+        }
 
-            auto& state = windows.at(id);
-            if (!state.file_picker || !FileAccessGrants::supported()) {
-                reply.fail("NotSupportedError"sv);
-                return;
-            }
+        auto& state = windows.at(id);
+        if (!state.file_picker || !FileAccessGrants::supported()) {
+            reply.fail("NotSupportedError"sv);
+            return;
+        }
 
-            if (!message.metadata.is_object()
-                || message.bytes.size() > FileAccessGrants::max_read_size) {
+        if (!message.metadata.is_object()
+            || message.bytes.size() > FileAccessGrants::max_read_size) {
+            reply.fail("TypeError"sv);
+            return;
+        }
+
+        auto const& options = message.metadata.as_object();
+        auto operation = options.get_string("operation"sv);
+        if (!operation.has_value() || (*operation != "write"sv && !message.bytes.is_empty())) {
+            reply.fail("TypeError"sv);
+            return;
+        }
+
+        auto& picker = *state.file_picker;
+        if (*operation == "requestPermission"sv) {
+            auto token = options.get_string("token"sv);
+            if (!token.has_value() || token->byte_count() != 36) {
                 reply.fail("TypeError"sv);
                 return;
             }
 
-            auto const& options = message.metadata.as_object();
-            auto operation = options.get_string("operation"sv);
-            if (!operation.has_value() || (*operation != "write"sv && !message.bytes.is_empty())) {
-                reply.fail("TypeError"sv);
+            auto status = picker.grants().permission(
+                reply.document, *token, options.get_bool("writable"sv).value_or(false));
+            if (status.is_error()) {
+                reply.fail(status.error());
                 return;
             }
 
-            if (!operation->bytes_as_string_view().is_one_of("open"sv, "directory"sv, "save"sv)) {
-                dispatch_handle_operation(reply, state.file_picker->grants(),
-                    operation->bytes_as_string_view(), options, message.bytes.bytes());
+            if (status.value() != "prompt"sv) {
+                JsonObject result;
+                result.set("permission"sv, status.value());
+                reply.send(move(result));
                 return;
             }
 
-            FilePicker::Selection selection {};
-            if (*operation == "directory"sv)
-                selection.mode = FilePicker::Mode::Directory;
-            else if (*operation == "save"sv) {
-                selection.mode = FilePicker::Mode::SaveFile;
-                if (auto suggested = options.get_string("suggestedName"sv); suggested.has_value()) {
-                    if (suggested->byte_count() > 255) {
-                        reply.fail("TypeError"sv);
-                        return;
-                    }
-
-                    selection.suggested_name = qt_string(*suggested);
-                }
-            } else if (options.get_bool("multiple"sv).value_or(false)) {
-                selection.mode = FilePicker::Mode::OpenFiles;
-            }
-
-            auto configured = apply_picker_options(options, selection);
-            if (configured.is_error()) {
-                reply.fail(configured.error());
-                return;
-            }
-
-            if (!page->consume_transient_user_activation()) {
+            if (!consume_picker_activation(*page)) {
                 reply.fail("SecurityError"sv);
                 return;
             }
 
-            // Browser admission consumes the trusted input before any renderer gets a reply.
-            page->traversable().top_level_traversable().for_each_hosting_page([](auto& host) {
-                host.async_consume_user_activation(Web::HTML::UserActivationConsumption::Transient);
-            });
+            auto document = page->hosted_document_with_id(reply.document);
+            auto origin = document->origin().serialize();
+            auto name = picker.grants().name(reply.document, *token);
+            if (name.is_error()) {
+                reply.fail(name.error());
+                return;
+            }
 
-            auto started = state.file_picker->request_grants(reply.document, selection,
-                [this, reply](ErrorOr<Vector<FileAccessGrants::Handle>> result) {
-                    if (!permission_contents(*reply.page, reply.document)) {
+            bool shown = picker.request_write_permission(qt_string(origin), qt_string(name.value()),
+                [this, reply, token = *token, picker = QPointer<FilePicker> { &picker }](
+                    bool granted) {
+                    if (!picker || !permission_contents(*reply.page, reply.document)) {
                         reply.fail("AbortError"sv);
                         return;
                     }
 
-                    if (result.is_error()) {
-                        reply.fail(result.error());
+                    auto stored
+                        = picker->grants().set_write_permission(reply.document, token, granted);
+                    if (stored.is_error()) {
+                        reply.fail(stored.error());
                         return;
                     }
 
-                    if (result.value().is_empty()) {
-                        reply.fail("AbortError"sv);
-                        return;
-                    }
-
-                    JsonArray handles;
-                    for (auto const& handle : result.value())
-                        MUST(handles.append(handle_info(handle)));
-                    JsonObject metadata;
-                    metadata.set("handles"sv, move(handles));
-                    reply.send(move(metadata));
+                    JsonObject result;
+                    result.set("permission"sv, granted ? "granted"sv : "denied"sv);
+                    reply.send(move(result));
                 });
-            if (started.is_error())
-                reply.fail(started.error());
-        });
+            if (!shown)
+                reply.fail("InvalidStateError"sv);
+            return;
+        }
+
+        if (!operation->bytes_as_string_view().is_one_of("open"sv, "directory"sv, "save"sv)) {
+            dispatch_handle_operation(reply, state.file_picker->grants(),
+                operation->bytes_as_string_view(), options, message.bytes.bytes());
+            return;
+        }
+
+        FilePicker::Selection selection {};
+        if (*operation == "directory"sv) {
+            selection.mode = FilePicker::Mode::Directory;
+            selection.writable_directory = options.get_bool("writable"sv).value_or(false);
+        } else if (*operation == "save"sv) {
+            selection.mode = FilePicker::Mode::SaveFile;
+            if (auto suggested = options.get_string("suggestedName"sv); suggested.has_value()) {
+                if (suggested->byte_count() > 255) {
+                    reply.fail("TypeError"sv);
+                    return;
+                }
+
+                selection.suggested_name = qt_string(*suggested);
+            }
+        } else if (options.get_bool("multiple"sv).value_or(false)) {
+            selection.mode = FilePicker::Mode::OpenFiles;
+        }
+
+        auto configured = apply_picker_options(options, selection);
+        if (configured.is_error()) {
+            reply.fail(configured.error());
+            return;
+        }
+
+        auto location_id = options.get_string("id"sv);
+        if (location_id.has_value()) {
+            auto identifier = location_id->bytes_as_string_view();
+            if (identifier.length() > 32) {
+                reply.fail("TypeError"sv);
+                return;
+            }
+
+            for (auto character : identifier) {
+                if (!is_ascii_alphanumeric(character) && character != '_' && character != '-') {
+                    reply.fail("TypeError"sv);
+                    return;
+                }
+            }
+        }
+
+        auto origin = page->hosted_document_with_id(reply.document)->origin().serialize();
+        selection.reminder_key = qt_string(origin) + '|'
+            + (location_id.has_value() ? qt_string(*location_id) : QString {});
+        auto remembered = picker.remembered_directory(selection.reminder_key);
+        if (!remembered.isEmpty())
+            selection.initial_directory = move(remembered);
+
+        if (auto start = options.get_string("startHandle"sv); start.has_value()) {
+            auto directory = picker.grants().directory_hint(reply.document, *start);
+            if (directory.is_error()) {
+                reply.fail(directory.error());
+                return;
+            }
+
+            selection.initial_directory = qt_string(directory.value());
+        }
+
+        if (!consume_picker_activation(*page)) {
+            reply.fail("SecurityError"sv);
+            return;
+        }
+
+        auto started = state.file_picker->request_grants(reply.document, selection,
+            [this, reply](ErrorOr<Vector<FileAccessGrants::Handle>> result) {
+                if (!permission_contents(*reply.page, reply.document)) {
+                    reply.fail("AbortError"sv);
+                    return;
+                }
+
+                if (result.is_error()) {
+                    reply.fail(result.error());
+                    return;
+                }
+
+                if (result.value().is_empty()) {
+                    reply.fail("AbortError"sv);
+                    return;
+                }
+
+                JsonArray handles;
+                for (auto const& handle : result.value())
+                    MUST(handles.append(handle_info(handle)));
+                JsonObject metadata;
+                metadata.set("handles"sv, move(handles));
+                reply.send(move(metadata));
+            });
+        if (started.is_error())
+            reply.fail(started.error());
+    });
 }
 
 void Bridge::Impl::stop_file_access()

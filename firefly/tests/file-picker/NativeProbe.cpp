@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QWidget>
 #include <cstdio>
@@ -265,6 +266,46 @@ int main(int argc, char** argv)
             "an existing capability retains the selected descriptor");
         grants.release(foreign, child_token);
         require(!grants.read(owner, child_token, 0, 1).is_error(), "foreign release ignored");
+
+        require(grants.child(owner, token, "refused.txt"sv, Grants::Kind::File, true).is_error(),
+            "read-only directory cannot create entries");
+        require(grants.remove(owner, token, "empty.txt"sv, false).is_error(),
+            "read-only directory cannot remove entries");
+        auto folder_bytes = directory.path().toUtf8();
+        auto writable_directory
+            = grants.admit(owner, StringView(folder_bytes.constData(), folder_bytes.size()),
+                Grants::Kind::Directory, true);
+        require(!writable_directory.is_error(), "create a writable directory capability");
+        auto writable_token = writable_directory.value().token;
+        require(grants.remove(foreign, writable_token, "empty.txt"sv, true).is_error(),
+            "foreign document cannot remove entries");
+        auto nested
+            = grants.child(owner, writable_token, "nested"sv, Grants::Kind::Directory, true);
+        require(!nested.is_error(), "create a child directory");
+        auto nested_file
+            = grants.child(owner, nested.value().token, "entry.txt"sv, Grants::Kind::File, true);
+        require(!nested_file.is_error(), "create a child file");
+        auto duplicate
+            = grants.child(owner, nested.value().token, "entry.txt"sv, Grants::Kind::File);
+        require(!duplicate.is_error(), "open the same child again");
+        auto same = grants.is_same_entry(owner, nested_file.value().token, duplicate.value().token);
+        require(
+            !same.is_error() && same.value(), "compare separate descriptors for the same entry");
+        auto relative = grants.resolve(owner, writable_token, nested_file.value().token);
+        require(!relative.is_error() && relative.value().has_value()
+                && relative.value()->size() == 2 && relative.value()->at(0) == "nested"sv
+                && relative.value()->at(1) == "entry.txt"sv,
+            "resolve path from the selected ancestor");
+
+        auto outside = directory.filePath("outside");
+        require(QDir().mkdir(outside), "create sibling outside the removal subtree");
+        auto link = directory.filePath("nested/link");
+        require(QFile::link(outside, link), "place a link to the sibling in the removal subtree");
+        require(grants.remove(owner, writable_token, "nested"sv, false).is_error(),
+            "nonrecursive removal refuses a nonempty directory");
+        require(!grants.remove(owner, writable_token, "nested"sv, true).is_error()
+                && QFileInfo::exists(outside) && !QFileInfo::exists(directory.filePath("nested")),
+            "recursive removal unlinks the link and retains its target");
 
         auto save_path = directory.filePath("writable.txt");
         auto save_utf8 = save_path.toUtf8();

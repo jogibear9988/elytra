@@ -3,6 +3,7 @@
 #include <AK/ScopeGuard.h>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QMessageBox>
 #include <QMimeDatabase>
 #include <QWidget>
 
@@ -61,21 +62,59 @@ FilePicker::FilePicker(QWidget& parent, Completion complete, Factory factory)
 FilePicker::~FilePicker()
 {
     m_path_completion = {};
+    m_permission_completion = {};
     cancel();
 }
 
 void FilePicker::cancel()
 {
-    auto dialog = m_dialog;
-    if (!dialog)
-        return;
+    if (auto permission = m_permission_dialog) {
+        m_permission_dialog = nullptr;
+        auto complete = move(m_permission_completion);
+        permission->reject();
+        permission->deleteLater();
+        if (complete)
+            complete(false);
+    }
 
-    m_dialog = nullptr; // Invalidate finished/queued signals before rejecting the dialog.
-    auto completion = move(m_path_completion);
-    dialog->reject();
-    dialog->deleteLater();
-    if (completion)
-        completion({});
+    if (auto dialog = m_dialog) {
+        m_dialog = nullptr;
+        auto completion = move(m_path_completion);
+        dialog->reject();
+        dialog->deleteLater();
+        if (completion)
+            completion({});
+    }
+}
+
+bool FilePicker::request_write_permission(
+    QString const& origin, QString const& name, PermissionCompletion complete)
+{
+    if (!complete || m_dialog || m_permission_dialog)
+        return false;
+
+    auto* box = new QMessageBox(QMessageBox::Question, "Allow file changes?",
+        QString("Allow %1 to edit %2?").arg(origin, name), QMessageBox::Yes | QMessageBox::No,
+        &m_parent);
+    m_permission_dialog = box;
+    m_permission_completion = move(complete);
+    box->setTextFormat(Qt::PlainText);
+    box->setDefaultButton(QMessageBox::No);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    QObject::connect(box, &QDialog::finished, this, [this, box](int result) {
+        if (m_permission_dialog != box)
+            return;
+        m_permission_dialog = nullptr;
+        auto complete = move(m_permission_completion);
+        complete(result == QMessageBox::Yes);
+    });
+    box->open();
+    return true;
+}
+
+QString FilePicker::remembered_directory(QString const& key) const
+{
+    return m_recent_directories.value(key);
 }
 
 void FilePicker::retire_document()
@@ -95,8 +134,9 @@ ErrorOr<void> FilePicker::request_grants(
     auto kind = selection.mode == Mode::Directory ? FileAccessGrants::Kind::Directory
                                                   : FileAccessGrants::Kind::File;
     bool admitted = request_selection(selection,
-        [this, document, kind, save = selection.mode == Mode::SaveFile, complete = move(complete)](
-            QStringList paths) mutable {
+        [this, document, kind, save = selection.mode == Mode::SaveFile,
+            writable = selection.writable_directory, key = selection.reminder_key,
+            complete = move(complete)](QStringList paths) mutable {
             auto issue_grants = [&]() -> ErrorOr<Vector<FileAccessGrants::Handle>> {
                 if (paths.size() > static_cast<qsizetype>(max_files))
                     return Error::from_errno(E2BIG);
@@ -113,14 +153,25 @@ ErrorOr<void> FilePicker::request_grants(
                     if (save)
                         handles.append(TRY(m_grants.admit_save(document, selected_path)));
                     else
-                        handles.append(TRY(m_grants.admit(document, selected_path, kind)));
+                        handles.append(
+                            TRY(m_grants.admit(document, selected_path, kind, writable)));
                 }
 
                 rollback.disarm();
                 return handles;
             };
 
-            complete(issue_grants());
+            auto grants = issue_grants();
+            if (!grants.is_error() && !paths.isEmpty() && !key.isEmpty()) {
+                if (!m_recent_directories.contains(key) && m_recent_directories.size() >= 128)
+                    m_recent_directories.erase(m_recent_directories.begin());
+                m_recent_directories.insert(key,
+                    kind == FileAccessGrants::Kind::Directory
+                        ? paths.first()
+                        : QFileInfo(paths.first()).absolutePath());
+            }
+
+            complete(move(grants));
         });
     if (!admitted)
         return Error::from_errno(EBUSY);
@@ -156,7 +207,7 @@ void FilePicker::request(Web::HTML::FileFilter const& accepted, Web::HTML::Allow
 
 bool FilePicker::request_selection(Selection const& selection, PathCompletion completion)
 {
-    if (m_dialog || !completion)
+    if (m_dialog || m_permission_dialog || !completion)
         return false;
     auto const& name = selection.suggested_name;
     if (!name.isEmpty()
@@ -186,7 +237,8 @@ bool FilePicker::request_selection(Selection const& selection, PathCompletion co
         dialog->setFileMode(QFileDialog::AnyFile);
         break;
     case Mode::Directory:
-        dialog->setWindowTitle("Select folder");
+        dialog->setWindowTitle(
+            selection.writable_directory ? "Select folder to edit" : "Select folder");
         dialog->setFileMode(QFileDialog::Directory);
         dialog->setOption(QFileDialog::ShowDirsOnly);
         break;

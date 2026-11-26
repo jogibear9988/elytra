@@ -16,13 +16,19 @@ def main():
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="firefly-file-access-") as temporary:
         root = Path(temporary)
-        source = root / "selected.txt"
+        profile = root / "profile"
+        profile.mkdir()
+        files = root / "files"
+        files.mkdir()
+        source = files / "selected.txt"
         source.write_text("original", encoding="utf-8")
-        target = root / "result.txt"
+        os.utime(source, (1_700_000_000, 1_700_000_000))
+        target = files / "result.txt"
         os.environ.update(
             QT_QPA_PLATFORM="cocoa",
             ELYTRA_TEST_OPEN_FILE=str(source),
-            ELYTRA_TEST_OPEN_DIRECTORY=str(root),
+            ELYTRA_TEST_OPEN_DIRECTORY=str(files),
+            ELYTRA_TEST_PROFILE=str(profile),
             ELYTRA_TEST_SAVE_FILE=str(target),
         )
         result = run(args.probe.resolve(), ROOT / "firefly/tests/file-picker/access.mjs")

@@ -17495,6 +17495,25 @@ filters include the Ladybird patch directory so patch-only revisions run
 their renderer gates. The documentation build and workflow YAML checks
 passed. Hosted renderer results are pending for the new patch stack.
 
+## Complete picked-directory operations and write permission prompts
+
+The second Ladybird patch now exposes directory async iteration, file
+and directory creation, recursive and nonrecursive removal, descriptor
+identity comparison, relative resolution, and permission queries and
+requests. Read/write directory selection grants write access to children.
+The browser authenticates permission prompts against the document and
+trusted input, and remembers picker locations per view and origin.
+Handle-based start locations remain inside the browser process.
+
+The macOS Release build and batched hidden fixtures passed open, directory,
+save, iteration, creation, removal, resolve, same-entry, permission
+escalation, cancellation, and stream commit and abort. The native probe
+also verifies that recursive removal unlinks a symlink without deleting
+its external target, and that read-only and foreign-document grants
+cannot mutate the selected folder. Remaining work includes origin-private
+storage, durable permissions and cloneable handles, worker sync access,
+and the Windows native provider.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

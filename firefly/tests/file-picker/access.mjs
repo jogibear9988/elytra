@@ -3,10 +3,14 @@ import { app, BrowserWindow } from 'firefly';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 
+app.setPath('userData', process.env.ELYTRA_TEST_PROFILE);
+
 const source = `<!doctype html><title>LOADING</title>
 <button style="position:absolute;left:20px;top:20px;width:240px;height:50px">Pick</button>
 <script type="module">
 const check = (value, message) => { if (!value) throw Error(message); };
+let selected;
+let selectedDirectory;
 const operations = [
   async () => {
     const [handle] = await showOpenFilePicker({
@@ -19,15 +23,55 @@ const operations = [
     let denied = false;
     try { await handle.createWritable(); } catch (error) { denied = error.name === 'NotAllowedError'; }
     check(denied, 'read grant cannot write');
+    check(await handle.queryPermission() === 'granted', 'selected read permission');
+    check(await handle.queryPermission({ mode: 'readwrite' }) === 'prompt', 'read grant can request write');
+    selected = handle;
   },
   async () => {
-    const directory = await showDirectoryPicker();
+    const directory = await showDirectoryPicker({ mode: 'readwrite', id: 'fixtures', startIn: selected });
     check(directory instanceof FileSystemDirectoryHandle && directory.kind === 'directory', 'directory handle type');
     const child = await directory.getFileHandle('selected.txt');
     check(await (await child.getFile()).text() === 'original', 'directory relative lookup');
+    check(await child.isSameEntry(selected), 'independently acquired handles identify one file');
+    check((await directory.resolve(selected)).join('/') === 'selected.txt', 'resolve independent child');
+    check((await directory.resolve(directory)).length === 0, 'resolve self');
+    check(await directory.queryPermission({ mode: 'readwrite' }) === 'granted', 'writable folder permission');
+    const nested = await directory.getDirectoryHandle('new-folder', { create: true });
+    const created = await nested.getFileHandle('new.txt', { create: true });
+    check((await directory.resolve(created)).join('/') === 'new-folder/new.txt', 'resolve nested file');
+    check(await nested.resolve(selected) === null, 'resolve unrelated file');
+    const stream = await created.createWritable();
+    await stream.write('child bytes');
+    await stream.close();
+    check(await (await created.getFile()).text() === 'child bytes', 'child inherits write grant');
+    let count = 0;
+    for await (const [name, entry] of directory) {
+      check(name === entry.name, 'directory iterator pairs');
+      count += 1;
+    }
+    check(count === 2, 'directory iterator reaches end');
+    for await (const name of directory.keys()) {
+      check(typeof name === 'string', 'directory keys');
+      break;
+    }
+    for await (const entry of directory.values()) {
+      check(entry instanceof FileSystemHandle, 'directory values');
+      break;
+    }
+    let refusedNonEmpty = false;
+    try { await directory.removeEntry('new-folder'); }
+    catch (error) { refusedNonEmpty = error.name === 'InvalidModificationError'; }
+    check(refusedNonEmpty, 'non-empty directory requires recursive removal');
+    await directory.removeEntry('new-folder', { recursive: true });
+    await directory.removeEntry('new-folder');
+    let missing = false;
+    try { await directory.getDirectoryHandle('new-folder'); }
+    catch (error) { missing = error.name === 'NotFoundError'; }
+    check(missing, 'recursive removal');
+    selectedDirectory = directory;
   },
   async () => {
-    const handle = await showSaveFilePicker({ suggestedName: 'result.txt' });
+    const handle = await showSaveFilePicker({ suggestedName: 'result.txt', startIn: selectedDirectory, id: 'fixtures' });
     check(handle.name === 'result.txt', 'save name');
     let stream = await handle.createWritable();
     check(stream instanceof FileSystemWritableFileStream && stream instanceof WritableStream, 'writable stream type');
@@ -53,6 +97,13 @@ const operations = [
     await stream.write('discard');
     await stream.abort();
     check(await (await handle.getFile()).text() === 'hello Elytra', 'abort retains committed bytes');
+  },
+  async () => {
+    const permission = await selected.requestPermission({ mode: 'readwrite' });
+    check(permission === 'granted', 'permission prompt granted');
+    const stream = await selected.createWritable();
+    await stream.write('modified with permission');
+    await stream.close();
   },
   async () => {
     let cancelled = false;
@@ -120,6 +171,9 @@ try {
   }
   if (readFileSync(process.env.ELYTRA_TEST_SAVE_FILE, 'utf8') !== 'hello Elytra') {
     throw Error('Saved bytes on disk did not match renderer readback');
+  }
+  if (readFileSync(process.env.ELYTRA_TEST_OPEN_FILE, 'utf8') !== 'modified with permission') {
+    throw Error('Permission escalation did not authorize the selected file write');
   }
   console.log('PASS File System Access WebIDL, native picker IPC, streams and on-disk commit');
   window.destroy();

@@ -12,6 +12,7 @@
 #ifndef AK_OS_WINDOWS
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -74,23 +75,30 @@ bool FileAccessGrants::supported()
 }
 
 ErrorOr<FileAccessGrants::Handle> FileAccessGrants::remember(
-    Document owner, StringView name, Kind kind, NonnullOwnPtr<Core::File> file)
+    Document owner, StringView name, Kind kind, NonnullOwnPtr<Core::File> file, bool writable)
 {
     auto display_name = TRY(String::from_utf8(name));
     auto token = new_token();
-    TRY(m_entries.try_set(token, Entry { owner, kind, move(file) }));
+    TRY(m_entries.try_set(token, Entry { owner, kind, move(file), writable, false, display_name }));
     return Handle { move(token), move(display_name), kind };
+}
+
+ErrorOr<FileAccessGrants::Entry const*> FileAccessGrants::lookup(
+    Document owner, String const& token) const
+{
+    auto it = m_entries.find(token);
+    if (it == m_entries.end() || it->value.owner != owner)
+        return Error::from_errno(EACCES);
+    return &it->value;
 }
 
 ErrorOr<FileAccessGrants::Entry const*> FileAccessGrants::lookup(
     Document owner, String const& token, Kind kind) const
 {
-    auto it = m_entries.find(token);
-    if (it == m_entries.end() || it->value.owner != owner)
-        return Error::from_errno(EACCES);
-    if (it->value.kind != kind)
+    auto entry = TRY(lookup(owner, token));
+    if (entry->kind != kind)
         return Error::from_errno(kind == Kind::Directory ? ENOTDIR : EISDIR);
-    return &it->value;
+    return entry;
 }
 
 #ifndef AK_OS_WINDOWS
@@ -128,12 +136,13 @@ static ErrorOr<NonnullOwnPtr<Core::File>> open_entry(
 #endif
 
 ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit(
-    Document owner, StringView path, Kind kind)
+    Document owner, StringView path, Kind kind, bool writable)
 {
 #ifdef AK_OS_WINDOWS
     (void)owner;
     (void)path;
     (void)kind;
+    (void)writable;
     return Error::from_errno(ENOTSUP);
 #else
     if (!owner.namespace_id || !owner.local_id || !path.starts_with('/') || path.length() > 4096
@@ -145,7 +154,8 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit(
     while (path.length() > 1 && path.ends_with('/'))
         path = path.substring_view(0, path.length() - 1);
     auto file = TRY(open_entry(AT_FDCWD, path, kind));
-    return remember(owner, LexicalPath::basename(path), kind, move(file));
+    return remember(
+        owner, LexicalPath::basename(path), kind, move(file), writable && kind == Kind::Directory);
 #endif
 }
 
@@ -168,25 +178,37 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_save(Document owner, S
         return Error::from_errno(EINVAL);
     auto parent_path = path.substring_view(0, max(separator, size_t { 1 }));
     auto parent = TRY(open_entry(AT_FDCWD, parent_path, Kind::Directory));
+    return admit_saved_file(owner, name, move(parent), true);
+#endif
+}
+
+#ifndef AK_OS_WINDOWS
+ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_saved_file(
+    Document owner, StringView name, NonnullOwnPtr<Core::File> parent, bool create)
+{
     auto target = TRY(adopt_nonnull_own_or_enomem(
         new (nothrow) SaveTarget { move(parent), ByteString { name } }));
 
     auto file = open_entry(target->parent->fd(), name, Kind::File);
-    if (file.is_error() && file.error().is_errno() && file.error().code() == ENOENT) {
+    if (create && file.is_error() && file.error().is_errno() && file.error().code() == ENOENT) {
         auto fd = openat(target->parent->fd(), target->name.characters(),
             O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
-        if (fd < 0)
+        if (fd < 0 && errno != EEXIST)
             return Error::from_errno(errno);
-        ArmedScopeGuard close_on_error = [&] { (void)Core::System::close(fd); };
-        file = Core::File::adopt_fd(fd, Core::File::OpenMode::ReadWrite);
-        if (!file.is_error())
-            close_on_error.disarm();
+        if (fd < 0) {
+            file = open_entry(target->parent->fd(), name, Kind::File);
+        } else {
+            ArmedScopeGuard close_on_error = [&] { (void)Core::System::close(fd); };
+            file = Core::File::adopt_fd(fd, Core::File::OpenMode::ReadWrite);
+            if (!file.is_error())
+                close_on_error.disarm();
+        }
     }
 
     if (file.is_error())
         return file.release_error();
 
-    auto handle = TRY(remember(owner, name, Kind::File, file.release_value()));
+    auto handle = TRY(remember(owner, name, Kind::File, file.release_value(), true));
     auto stored = m_save_targets.try_set(handle.token, move(target));
     if (stored.is_error()) {
         release(owner, handle.token);
@@ -194,8 +216,8 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::admit_save(Document owner, S
     }
 
     return handle;
-#endif
 }
+#endif
 
 ErrorOr<FileAccessGrants::Writer*> FileAccessGrants::lookup_writer(
     Document owner, String const& token)
@@ -364,25 +386,285 @@ ErrorOr<void> FileAccessGrants::finish_write(Document owner, String const& token
 #endif
 }
 
+#ifndef AK_OS_WINDOWS
+static bool is_entry_name(StringView name)
+{
+    return !name.is_empty() && name != "."sv && name != ".."sv && name.length() <= 255
+        && !name.contains('/') && !name.contains('\\') && !name.contains('\0')
+        && !name.starts_with(".elytra-file-"sv);
+}
+
+static bool identical(struct stat const& left, struct stat const& right)
+{
+    return left.st_dev == right.st_dev && left.st_ino == right.st_ino;
+}
+
+static ErrorOr<String> descriptor_path(int fd)
+{
+    char path[PATH_MAX] {};
+#if defined(AK_OS_MACOS)
+    if (fcntl(fd, F_GETPATH, path) < 0)
+        return Error::from_errno(errno);
+    return String::from_utf8(StringView { path, strlen(path) });
+#elif defined(AK_OS_LINUX)
+    auto link = TRY(String::formatted("/proc/self/fd/{}", fd)).to_byte_string();
+    auto length = readlink(link.characters(), path, sizeof(path));
+    if (length < 0 || static_cast<size_t>(length) == sizeof(path))
+        return Error::from_errno(length < 0 ? errno : ENAMETOOLONG);
+    return String::from_utf8(StringView { path, static_cast<size_t>(length) });
+#else
+    return Error::from_errno(ENOTSUP);
+#endif
+}
+
+static ErrorOr<void> remove_entry(int parent, char const* name, bool recursive, dev_t volume,
+    size_t remaining_depth, size_t& remaining_entries)
+{
+    if (!remaining_depth || !remaining_entries)
+        return Error::from_errno(E2BIG);
+    --remaining_entries;
+    struct stat metadata {};
+    if (fstatat(parent, name, &metadata, AT_SYMLINK_NOFOLLOW) < 0) {
+        if (errno == ENOENT)
+            return {};
+        return Error::from_errno(errno);
+    }
+
+    if (metadata.st_dev != volume)
+        return Error::from_errno(EXDEV);
+
+    bool directory = S_ISDIR(metadata.st_mode);
+    if (directory && recursive) {
+        auto file = TRY(open_entry(
+            parent, StringView { name, strlen(name) }, FileAccessGrants::Kind::Directory));
+        if (!identical(metadata, TRY(Core::System::fstat(file->fd()))))
+            return Error::from_errno(EAGAIN);
+        auto* stream = fdopendir(file->fd());
+        if (!stream)
+            return Error::from_errno(errno);
+        (void)file->leak_fd();
+        ScopeGuard close = [&] { closedir(stream); };
+        for (;;) {
+            errno = 0;
+            auto* entry = readdir(stream);
+            if (!entry) {
+                if (errno)
+                    return Error::from_errno(errno);
+                break;
+            }
+
+            StringView child(entry->d_name, strlen(entry->d_name));
+            if (child.is_one_of("."sv, ".."sv))
+                continue;
+            if (child.starts_with(".elytra-file-"sv))
+                return Error::from_errno(EBUSY);
+            TRY(remove_entry(dirfd(stream), entry->d_name, true, volume, remaining_depth - 1,
+                remaining_entries));
+        }
+
+        struct stat current {};
+        if (fstatat(parent, name, &current, AT_SYMLINK_NOFOLLOW) < 0)
+            return Error::from_errno(errno);
+        if (!identical(metadata, current))
+            return Error::from_errno(EAGAIN);
+    }
+
+    if (unlinkat(parent, name, directory ? AT_REMOVEDIR : 0) < 0 && errno != ENOENT)
+        return Error::from_errno(errno);
+    return {};
+}
+#endif
+
 ErrorOr<FileAccessGrants::Handle> FileAccessGrants::child(
-    Document owner, String const& token, StringView name, Kind kind)
+    Document owner, String const& token, StringView name, Kind kind, bool create)
 {
 #ifdef AK_OS_WINDOWS
     (void)owner;
     (void)token;
     (void)name;
     (void)kind;
+    (void)create;
     return Error::from_errno(ENOTSUP);
 #else
     auto parent = TRY(lookup(owner, token, Kind::Directory));
-    if (name.is_empty() || name == "."sv || name == ".."sv || name.length() > 255
-        || name.contains('/') || name.contains('\\') || name.contains('\0'))
+    if (!is_entry_name(name) || !Utf8View { name }.validate())
         return Error::from_errno(EINVAL);
+    if (create && !parent->writable)
+        return Error::from_errno(EACCES);
     if (m_entries.size() >= max_grants)
         return Error::from_errno(ENOSPC);
 
-    auto file = TRY(open_entry(parent->descriptor->fd(), name, kind));
-    return remember(owner, name, kind, move(file));
+    auto fd = parent->descriptor->fd();
+    auto writable = parent->writable;
+    if (writable && kind == Kind::File)
+        return admit_saved_file(owner, name, TRY(open_entry(fd, "."sv, Kind::Directory)), create);
+
+    if (create) {
+        auto basename = ByteString { name };
+        if (mkdirat(fd, basename.characters(), 0700) < 0 && errno != EEXIST)
+            return Error::from_errno(errno);
+    }
+
+    auto file = TRY(open_entry(fd, name, kind));
+    return remember(owner, name, kind, move(file), writable);
+#endif
+}
+
+ErrorOr<void> FileAccessGrants::remove(
+    Document owner, String const& token, StringView name, bool recursive)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)name;
+    (void)recursive;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto directory = TRY(lookup(owner, token, Kind::Directory));
+    if (!is_entry_name(name) || !Utf8View { name }.validate())
+        return Error::from_errno(EINVAL);
+    if (!directory->writable)
+        return Error::from_errno(EACCES);
+
+    auto fd = directory->descriptor->fd();
+    auto volume = TRY(Core::System::fstat(fd)).st_dev;
+    auto basename = ByteString { name };
+    size_t remaining_entries = 4096;
+    return remove_entry(fd, basename.characters(), recursive, volume, 64, remaining_entries);
+#endif
+}
+
+ErrorOr<bool> FileAccessGrants::is_same_entry(
+    Document owner, String const& left, String const& right) const
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)left;
+    (void)right;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto a = TRY(lookup(owner, left));
+    auto b = TRY(lookup(owner, right));
+    return identical(TRY(Core::System::fstat(a->descriptor->fd())),
+        TRY(Core::System::fstat(b->descriptor->fd())));
+#endif
+}
+
+ErrorOr<Optional<Vector<String>>> FileAccessGrants::resolve(
+    Document owner, String const& token, String const& descendant_token) const
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)descendant_token;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto directory = TRY(lookup(owner, token, Kind::Directory));
+    auto descendant = TRY(lookup(owner, descendant_token));
+    auto identity = TRY(Core::System::fstat(descendant->descriptor->fd()));
+    if (identical(TRY(Core::System::fstat(directory->descriptor->fd())), identity))
+        return Optional<Vector<String>> { Vector<String> {} };
+
+    auto root = TRY(descriptor_path(directory->descriptor->fd()));
+    auto path = TRY(descriptor_path(descendant->descriptor->fd()));
+    auto prefix = TRY(String::formatted("{}{}", root, root.ends_with('/') ? ""sv : "/"sv));
+    if (!path.starts_with_bytes(prefix.bytes_as_string_view()))
+        return Optional<Vector<String>> {};
+
+    // Treat the OS path as a hint. Only return components that can be walked from the authorized
+    // directory descriptor and still identify the actual descendant descriptor.
+    auto parts = path.bytes_as_string_view().substring_view(prefix.byte_count()).split_view('/');
+    if (parts.is_empty() || parts.size() > 64)
+        return Optional<Vector<String>> {};
+
+    Vector<String> relative;
+    auto current = TRY(open_entry(directory->descriptor->fd(), "."sv, Kind::Directory));
+    for (size_t index = 0; index < parts.size(); ++index) {
+        auto name = parts[index];
+        if (!is_entry_name(name))
+            return Optional<Vector<String>> {};
+        auto kind = index + 1 == parts.size() ? descendant->kind : Kind::Directory;
+        auto opened = open_entry(current->fd(), name, kind);
+        if (opened.is_error())
+            return Optional<Vector<String>> {};
+        current = opened.release_value();
+        TRY(relative.try_append(TRY(String::from_utf8(name))));
+    }
+
+    if (!identical(TRY(Core::System::fstat(current->fd())), identity))
+        return Optional<Vector<String>> {};
+    return Optional<Vector<String>> { move(relative) };
+#endif
+}
+
+ErrorOr<StringView> FileAccessGrants::permission(
+    Document owner, String const& token, bool writable) const
+{
+    auto entry = TRY(lookup(owner, token));
+    if (!writable || entry->writable)
+        return "granted"sv;
+    return entry->write_denied ? "denied"sv : "prompt"sv;
+}
+
+ErrorOr<String> FileAccessGrants::name(Document owner, String const& token) const
+{
+    return TRY(lookup(owner, token))->name;
+}
+
+ErrorOr<String> FileAccessGrants::directory_hint(Document owner, String const& token) const
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto entry = TRY(lookup(owner, token));
+    auto path = TRY(descriptor_path(entry->descriptor->fd()));
+    if (entry->kind == Kind::Directory)
+        return path;
+    auto directory = LexicalPath::dirname(path.to_byte_string());
+    return String::from_utf8(directory.view());
+#endif
+}
+
+ErrorOr<void> FileAccessGrants::set_write_permission(
+    Document owner, String const& token, bool granted)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)granted;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto record = m_entries.find(token);
+    if (record == m_entries.end() || record->value.owner != owner)
+        return Error::from_errno(EACCES);
+
+    auto& entry = record->value;
+    if (entry.writable)
+        return {};
+    if (!granted) {
+        entry.write_denied = true;
+        return {};
+    }
+
+    if (entry.kind == Kind::File) {
+        auto path = TRY(descriptor_path(entry.descriptor->fd()));
+        auto dirname = LexicalPath::dirname(path.to_byte_string());
+        auto parent = TRY(open_entry(AT_FDCWD, dirname.view(), Kind::Directory));
+        auto basename = LexicalPath::basename(path.to_byte_string());
+        auto current = TRY(open_entry(parent->fd(), basename.view(), Kind::File));
+        if (!identical(TRY(Core::System::fstat(current->fd())),
+                TRY(Core::System::fstat(entry.descriptor->fd()))))
+            return Error::from_errno(EAGAIN);
+        auto target = TRY(adopt_nonnull_own_or_enomem(
+            new (nothrow) SaveTarget { move(parent), ByteString { basename } }));
+        TRY(m_save_targets.try_set(token, move(target)));
+    }
+
+    entry.writable = true;
+    entry.write_denied = false;
+    return {};
 #endif
 }
 
@@ -489,7 +771,7 @@ ErrorOr<FileAccessGrants::DirectoryPage> FileAccessGrants::next_entries(
         }
 
         StringView name(entry->d_name, strlen(entry->d_name));
-        if (name == "."sv || name == ".."sv || name.contains('\\'))
+        if (!is_entry_name(name))
             continue;
         struct stat metadata {};
         if (fstatat(dirfd(stream), entry->d_name, &metadata, AT_SYMLINK_NOFOLLOW) < 0) {

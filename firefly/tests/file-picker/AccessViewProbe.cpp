@@ -1,7 +1,9 @@
 /** Route trusted input and hidden Qt choices through the full production Firefly application. */
 #include "native/qt/hub/Frontend.h"
+#include <QAbstractButton>
 #include <QApplication>
 #include <QFileDialog>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPointer>
 #include <QTimer>
@@ -23,6 +25,11 @@ public:
         if (event->type() == QEvent::Polish) {
             if (auto* widget = qobject_cast<QWidget*>(object); widget && widget->isWindow())
                 widget->setAttribute(Qt::WA_DontShowOnScreen);
+            if (auto* box = qobject_cast<QMessageBox*>(object);
+                box && box->text().startsWith("Allow ")) {
+                box->setOption(QMessageBox::Option::DontUseNativeDialog);
+                QTimer::singleShot(0, box, [box] { box->button(QMessageBox::Yes)->click(); });
+            }
         }
 
         if (event->type() != QEvent::Show)
