@@ -432,7 +432,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_load(JS::VM& vm)
         && !protocols->has_route(url->scheme()))
         return preload_error(
             vm, "ERR_FIREFLY_UNSUPPORTED_API", "URL has no registered file route"sv);
-    current->file_picker->cancel();
+    current->file_picker->retire_document();
     current->requested_url = *url;
     current->navigation_requests.clear();
     current->failed = false;

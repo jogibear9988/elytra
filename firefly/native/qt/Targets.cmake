@@ -137,8 +137,11 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 else()
     message(FATAL_ERROR "No native Firefly Qt presentation adapter for this platform")
 endif()
-add_library(firefly-file-picker STATIC "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Picker.cpp"
-                                       "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Snapshot.cpp")
+add_library(
+    firefly-file-picker STATIC
+    "${CMAKE_CURRENT_LIST_DIR}/../file-access/Grants.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Picker.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Snapshot.cpp")
 target_link_libraries(firefly-file-picker PUBLIC LibUnicode Qt::Widgets LibWebCommon LibCore LibIPC
                                                  AK)
 get_target_property(firefly_unicode_library_type LibUnicode TYPE)

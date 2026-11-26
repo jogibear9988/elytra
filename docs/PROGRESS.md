@@ -17404,6 +17404,26 @@ worker members. The draft is outside the applied patch stack. The browser
 IPC, storage and permission integration and WebIDL method implementations
 remain open.
 
+## Retain document-scoped filesystem grants in the browser process
+
+The native open-file and directory chooser can now issue opaque tokens
+without returning local paths. A token names an open descriptor owned by
+the requesting document and its view. Reads and directory iteration use
+bounded batches. Child opens are relative to the directory descriptor
+and reject traversal and symlinks. Independent iterators have independent
+positions, and the browser closes them on completion, handle release or
+document retirement. Cancellation grants nothing. View navigation, crash,
+close and detach retire the chooser and its grants.
+
+The hidden macOS picker probe verifies the existing HTML input route and
+grant creation, foreign-document refusal, descriptor identity across rename,
+bounded reads and iteration, filesystem-native Unicode names and navigation
+revocation. The renderer channel and WebIDL consumers are still open. The
+native grant route currently admits read-only file and directory selections.
+Save grants, staged writable streams, persistent permissions and private
+storage remain part of the second patch. Windows grant support is unverified
+and explicitly unavailable in this provider.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

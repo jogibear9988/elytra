@@ -114,7 +114,7 @@ void Bridge::Impl::detach_view(int host_id, int child_id)
         return;
     auto& child = found->second;
     if (child.file_picker)
-        child.file_picker->cancel();
+        child.file_picker->retire_document();
     child.view->hide();
     if (auto host = windows.find(host_id); host != windows.end()) {
         auto& ids = host->second.child_ids;
@@ -135,7 +135,7 @@ bool Bridge::Impl::attach_view(int host_id, int child_id, size_t index)
     auto previous_owner = child.owner_id;
     auto* previous_parent = child.view->parentWidget();
     if (child.file_picker)
-        child.file_picker->cancel();
+        child.file_picker->retire_document();
     child.view->hide();
     clear_first_mouse(*child.view);
     move_content_widget(*child.view, host.content_container);
@@ -196,7 +196,7 @@ void Bridge::Impl::close_contents(int id, bool immediate)
     if (!current.closing) {
         current.closing = true;
         if (current.file_picker)
-            current.file_picker->cancel();
+            current.file_picker->retire_document();
         reset_ipc(id);
     }
 
@@ -260,7 +260,7 @@ void Bridge::Impl::setup_content_callbacks(int id)
     };
 
     view->on_load_start = [this, id, file_picker, region_start = move(region_start)] {
-        file_picker->cancel();
+        file_picker->retire_document();
         reset_ipc(id);
         if (region_start)
             region_start();
@@ -287,7 +287,7 @@ void Bridge::Impl::setup_content_callbacks(int id)
     view->on_title_change
         = [this, id](auto const& title) { enqueue(id, "title", title.to_byte_string()); };
     view->on_web_content_crashed = [this, id, file_picker](auto) {
-        file_picker->cancel();
+        file_picker->retire_document();
         reset_ipc(id);
         enqueue(id, "crashed");
     };

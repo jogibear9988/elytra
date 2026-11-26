@@ -45,7 +45,7 @@ void Bridge::Impl::destroy(int id, bool immediate)
     while (!current.child_ids.empty())
         detach_view(id, current.child_ids.back());
     if (current.file_picker)
-        current.file_picker->cancel();
+        current.file_picker->retire_document();
     current.window->hide();
     if (immediate)
         delete current.window;

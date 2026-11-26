@@ -1,5 +1,6 @@
 /** Native path selection and HTML file-input snapshots. Paths stay in the browser process. */
 #pragma once
+#include "../file-access/Grants.h"
 #include "Limits.h"
 #include <AK/Function.h>
 #include <LibWebCommon/HTML/FileFilter.h>
@@ -38,7 +39,17 @@ public:
     // Internal browser-process provider. Rejected requests own no dialog or completion.
     bool request_selection(Selection const&, PathCompletion);
 
+    using GrantCompletion = Function<void(ErrorOr<Vector<FileAccessGrants::Handle>>)>;
+    ErrorOr<void> request_grants(FileAccessGrants::Document, Selection const&, GrantCompletion);
+
+    FileAccessGrants& grants()
+    {
+        return m_grants;
+    }
+
     void cancel();
+
+    void retire_document();
 
     static ErrorOr<Vector<Web::HTML::SelectedFile>> snapshot(QStringList const&, bool multiple);
 
@@ -47,6 +58,7 @@ private:
     Completion m_complete;
     Factory m_factory;
     PathCompletion m_path_completion;
+    FileAccessGrants m_grants;
     QPointer<QFileDialog> m_dialog;
 };
 }

@@ -168,6 +168,121 @@ int main(int argc, char** argv)
         "save chooser resolves the suggested file");
     require(!QFile::exists(chosen_paths.front()), "save chooser does not write file bytes");
     require(callbacks == 3, "path selections bypass HTML input snapshot completion");
+    if (Firefly::FileAccessGrants::supported()) {
+        using Grants = Firefly::FileAccessGrants;
+        Grants::Document owner { 1, 1 };
+        Grants::Document foreign { 1, 2 };
+        unsigned grant_completions = 0;
+        Vector<Grants::Handle> handles;
+        auto grant_request = picker.request_grants(
+            owner, select_folder, [&](ErrorOr<Vector<Grants::Handle>> result) {
+                require(!result.is_error(), "native selection creates grants");
+                handles = result.release_value();
+                ++grant_completions;
+            });
+        require(!grant_request.is_error(), "native folder grant request");
+        require(QMetaObject::invokeMethod(dialog, "accept", Qt::DirectConnection), "grant accept");
+        require(grant_completions == 1 && handles.size() == 1
+                && handles.first().kind == Grants::Kind::Directory,
+            "one document-scoped directory capability");
+        auto& grants = picker.grants();
+        auto token = handles.first().token;
+        auto child = grants.child(owner, token, "ä selected.txt"sv, Grants::Kind::File);
+        require(!child.is_error(), "open child relative to selected directory");
+        auto child_token = child.value().token;
+        auto part = grants.read(owner, child_token, 6, 64);
+        require(!part.is_error() && part.value().size() == 4
+                && memcmp(part.value().data(), "file", 4) == 0,
+            "offset read from selected file");
+        require(grants.read(foreign, child_token, 0, 1).is_error(), "foreign document rejected");
+        require(grants.child(owner, token, "../outside"sv, Grants::Kind::File).is_error(),
+            "directory traversal refused");
+        require(grants.read(owner, child_token, 0, Grants::max_read_size + 1).is_error(),
+            "read budget enforced");
+        auto link = directory.filePath("alias.txt");
+        require(QFile::link(path, link), "create symlink fixture");
+        require(grants.child(owner, token, "alias.txt"sv, Grants::Kind::File).is_error(),
+            "directory capability never follows a child symlink");
+        auto cursor = grants.begin_iteration(owner, token);
+        auto independent = grants.begin_iteration(owner, token);
+        require(!cursor.is_error() && !independent.is_error(), "create independent iterators");
+        require(grants.next_entries(foreign, cursor.value(), 1).is_error(),
+            "foreign document cannot advance iterator");
+        require(grants.next_entries(owner, cursor.value(), 0).is_error()
+                && grants.next_entries(owner, cursor.value(), Grants::max_entries_per_page + 1)
+                    .is_error(),
+            "reject invalid batch sizes without consuming the cursor");
+        auto first_page = grants.next_entries(owner, cursor.value(), 1);
+        auto independent_page = grants.next_entries(owner, independent.value(), 1);
+        require(!first_page.is_error() && !independent_page.is_error()
+                && first_page.value().entries.size() == 1
+                && independent_page.value().entries.size() == 1
+                && first_page.value().entries.first().name
+                    == independent_page.value().entries.first().name,
+            "independent iterators start at the same entry");
+        auto is_selected = [&](Grants::DirectoryEntry const& entry) {
+            // Some native filesystems return canonically decomposed names.
+            // Compare the display spelling, then verify the returned bytes work as a lookup.
+            if (QString::fromUtf8(
+                    entry.name.bytes_as_string_view().characters_without_null_termination(),
+                    entry.name.byte_count())
+                    .normalized(QString::NormalizationForm_C)
+                != QString::fromUtf8("ä selected.txt"))
+                return false;
+            require(
+                !grants.child(owner, token, entry.name.bytes_as_string_view(), Grants::Kind::File)
+                    .is_error(),
+                "enumerated name resolves using its original bytes");
+            return true;
+        };
+
+        bool found_selected = is_selected(first_page.value().entries.first());
+        auto last_page = grants.next_entries(owner, cursor.value(), Grants::max_entries_per_page);
+        require(!last_page.is_error() && last_page.value().done, "enumeration reaches end");
+        for (auto const& entry : last_page.value().entries) {
+            require(entry.name != "alias.txt"sv && entry.name != "pipe"sv,
+                "enumeration skips symlinks and special files");
+            found_selected |= is_selected(entry);
+        }
+
+        require(found_selected, "enumeration includes regular files");
+        require(grants.next_entries(owner, cursor.value(), 1).is_error(),
+            "end of iteration releases the cursor");
+        grants.close_iteration(owner, independent.value());
+        require(grants.next_entries(owner, independent.value(), 1).is_error(),
+            "explicit close releases the cursor");
+        auto pending_cursor = grants.begin_iteration(owner, token);
+        require(!pending_cursor.is_error(), "create cursor before navigation");
+        auto moved = directory.filePath("renamed.txt");
+        require(QFile::rename(path, moved), "rename selected file");
+        QFile replacement(path);
+        require(replacement.open(QIODevice::WriteOnly) && replacement.write("replacement") == 11,
+            "replace old path");
+        replacement.close();
+        part = grants.read(owner, child_token, 6, 64);
+        require(!part.is_error() && part.value().size() == 4
+                && memcmp(part.value().data(), "file", 4) == 0,
+            "an existing capability retains the selected descriptor");
+        grants.release(foreign, child_token);
+        require(!grants.read(owner, child_token, 0, 1).is_error(), "foreign release ignored");
+
+        grant_request = picker.request_grants(
+            owner, select_folder, [&](ErrorOr<Vector<Grants::Handle>> result) {
+                require(!result.is_error() && result.value().is_empty(), "cancel grants nothing");
+                ++grant_completions;
+            });
+        require(!grant_request.is_error(), "admit pending grant prompt");
+        picker.retire_document();
+        require(grant_completions == 2, "navigation cancels the pending chooser once");
+        require(grants.read(owner, child_token, 0, 1).is_error(), "navigation revokes file");
+        require(grants.child(owner, token, "empty.txt"sv, Grants::Kind::File).is_error(),
+            "navigation revokes directory");
+        require(grants.next_entries(owner, pending_cursor.value(), 1).is_error(),
+            "navigation revokes iteration");
+        std::puts("PASS document-bound descriptor grants, bounded reads and paging, navigation "
+                  "revocation");
+    }
+
     std::puts("PASS native folder and save modes with owned path completion");
     std::puts("PASS file picker: real hidden Qt accept/cancel/stale/destruction; "
               "binary/basename/type/FIFO/count/exact/overflow snapshot limits");

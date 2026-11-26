@@ -1,5 +1,6 @@
 /** Own one nonmodal chooser per view and retire it before navigation/crash/destruction. */
 #include "Picker.h"
+#include <AK/ScopeGuard.h>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMimeDatabase>
@@ -75,6 +76,51 @@ void FilePicker::cancel()
     dialog->deleteLater();
     if (completion)
         completion({});
+}
+
+void FilePicker::retire_document()
+{
+    m_grants.revoke_all();
+    cancel();
+}
+
+ErrorOr<void> FilePicker::request_grants(
+    FileAccessGrants::Document document, Selection const& selection, GrantCompletion complete)
+{
+    if (!FileAccessGrants::supported() || selection.mode == Mode::SaveFile)
+        return Error::from_errno(ENOTSUP);
+    if (!document.namespace_id || !document.local_id || !complete)
+        return Error::from_errno(EINVAL);
+
+    auto kind = selection.mode == Mode::Directory ? FileAccessGrants::Kind::Directory
+                                                  : FileAccessGrants::Kind::File;
+    bool admitted = request_selection(
+        selection, [this, document, kind, complete = move(complete)](QStringList paths) mutable {
+            auto issue_grants = [&]() -> ErrorOr<Vector<FileAccessGrants::Handle>> {
+                if (paths.size() > static_cast<qsizetype>(max_files))
+                    return Error::from_errno(E2BIG);
+                Vector<FileAccessGrants::Handle> handles;
+                TRY(handles.try_ensure_capacity(paths.size()));
+                ArmedScopeGuard rollback = [&] {
+                    for (auto const& handle : handles)
+                        m_grants.release(document, handle.token);
+                };
+
+                for (auto const& path : paths) {
+                    auto bytes = path.toUtf8();
+                    handles.append(TRY(m_grants.admit(
+                        document, StringView(bytes.constData(), bytes.size()), kind)));
+                }
+
+                rollback.disarm();
+                return handles;
+            };
+
+            complete(issue_grants());
+        });
+    if (!admitted)
+        return Error::from_errno(EBUSY);
+    return {};
 }
 
 void FilePicker::request(Web::HTML::FileFilter const& accepted, Web::HTML::AllowMultipleFiles mode)
