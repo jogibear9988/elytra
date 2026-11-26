@@ -82,6 +82,18 @@ namespace {
 
     NeverDestroyed<RefPtr<PermissionPolicyCallback>> permission_policy_receiver;
 
+    struct FileAccessCallback : RefCounted<FileAccessCallback> {
+        explicit FileAccessCallback(FileAccessReceiver value)
+            : callback(move(value))
+        {
+        }
+
+        FileAccessReceiver callback;
+    };
+
+    NeverDestroyed<RefPtr<FileAccessCallback>> file_access_request_receiver;
+    NeverDestroyed<RefPtr<FileAccessCallback>> file_access_reply_receiver;
+
 }
 
 void set_bootstrap_receiver(BootstrapReceiver callback)
@@ -188,6 +200,34 @@ void accept_permission_policy(IPC::Stub& stub, u64 epoch, bool check, bool reque
     auto callback = permission_policy_receiver.get();
     if (callback && epoch && epoch <= 2147483647)
         callback->callback(stub, epoch, check, request);
+}
+
+void set_file_access_request_receiver(FileAccessReceiver value)
+{
+    file_access_request_receiver.get()
+        = value ? adopt_ref(*new FileAccessCallback(move(value))) : RefPtr<FileAccessCallback> {};
+}
+
+void set_file_access_reply_receiver(FileAccessReceiver value)
+{
+    file_access_reply_receiver.get()
+        = value ? adopt_ref(*new FileAccessCallback(move(value))) : RefPtr<FileAccessCallback> {};
+}
+
+void accept_file_access_request(
+    IPC::Stub& stub, u64 page, u64 ns, u64 local, u64 request, JsonValue metadata, ByteBuffer bytes)
+{
+    auto receiver = file_access_request_receiver.get();
+    if (receiver && ns && local && request)
+        receiver->callback(stub, { page, ns, local, request, move(metadata), move(bytes) });
+}
+
+void accept_file_access_reply(
+    IPC::Stub& stub, u64 page, u64 ns, u64 local, u64 request, JsonValue metadata, ByteBuffer bytes)
+{
+    auto receiver = file_access_reply_receiver.get();
+    if (receiver && ns && local && request)
+        receiver->callback(stub, { page, ns, local, request, move(metadata), move(bytes) });
 }
 
 }

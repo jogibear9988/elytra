@@ -69,6 +69,7 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
     ipc_timer->start();
     initialize_protocols();
     initialize_permissions();
+    initialize_file_access();
     initialize_web_request();
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
     set_native_ipc_handler([this](auto& page, auto navigable, auto params, NativeIpcKind kind) {
@@ -98,6 +99,7 @@ void Bridge::Impl::stop()
     if (web_request)
         web_request->stop();
     web_request = nullptr;
+    stop_file_access();
     Permissions::install_hooks({});
     reset_permissions(0);
     permission_check = nullptr;

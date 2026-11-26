@@ -45,6 +45,16 @@ public:
     // on opaque tokens and single child names relative to an opened directory.
     ErrorOr<Handle> admit(Document, StringView absolute_path, Kind);
 
+    ErrorOr<Handle> admit_save(Document, StringView absolute_path);
+
+    ErrorOr<String> begin_write(Document, String const& token, bool keep_existing_data);
+
+    ErrorOr<void> write(Document, String const& writer, u64 offset, ReadonlyBytes);
+
+    ErrorOr<void> truncate(Document, String const& writer, u64 size);
+
+    ErrorOr<void> finish_write(Document, String const& writer, bool commit);
+
     ErrorOr<Handle> child(Document, String const& token, StringView name, Kind);
 
     ErrorOr<ByteBuffer> read(Document, String const& token, u64 offset, size_t count) const;
@@ -67,16 +77,22 @@ private:
     };
 
     struct Cursor;
+    struct SaveTarget;
+    struct Writer;
     static constexpr size_t max_cursors = 32;
     static constexpr size_t max_scans_per_page = 256;
 
     ErrorOr<Handle> remember(Document, StringView name, Kind, NonnullOwnPtr<Core::File>);
+
+    ErrorOr<Writer*> lookup_writer(Document, String const& token);
 
     ErrorOr<Entry const*> lookup(Document, String const& token, Kind) const;
 
     String new_token() const;
 
     HashMap<String, Entry> m_entries;
+    HashMap<String, NonnullOwnPtr<SaveTarget>> m_save_targets;
+    HashMap<String, NonnullOwnPtr<Writer>> m_writers;
     HashMap<String, NonnullOwnPtr<Cursor>> m_cursors;
 };
 

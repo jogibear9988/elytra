@@ -310,6 +310,10 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     bool permission_event_current(ByteString const&);
 
+    void initialize_file_access();
+
+    void stop_file_access();
+
     int permission_contents(WebView::WebContentPage&, Permissions::DocumentId);
 
     bool check_permission(

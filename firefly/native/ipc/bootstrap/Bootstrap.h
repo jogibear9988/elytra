@@ -1,6 +1,8 @@
 /** Trusted control-plane endpoint handoff. No page/global/preload API is installed here. */
 #pragma once
+#include <AK/ByteBuffer.h>
 #include <AK/Function.h>
+#include <AK/JsonValue.h>
 #include <AK/String.h>
 #include <AK/Utf16String.h>
 #include <LibIPC/TransportHandle.h>
@@ -84,5 +86,26 @@ using PermissionPolicyReceiver = Function<void(IPC::Stub&, u64 epoch, bool check
 void set_permission_policy_receiver(PermissionPolicyReceiver);
 
 void accept_permission_policy(IPC::Stub&, u64 epoch, bool check, bool request);
+
+struct FileAccessMessage {
+    u64 page;
+    u64 document_namespace;
+    u64 document_local;
+    u64 request;
+    JsonValue metadata;
+    ByteBuffer bytes;
+};
+
+using FileAccessReceiver = Function<void(IPC::Stub&, FileAccessMessage)>;
+
+void set_file_access_request_receiver(FileAccessReceiver);
+
+void set_file_access_reply_receiver(FileAccessReceiver);
+
+void accept_file_access_request(
+    IPC::Stub&, u64 page, u64 ns, u64 local, u64 request, JsonValue, ByteBuffer);
+
+void accept_file_access_reply(
+    IPC::Stub&, u64 page, u64 ns, u64 local, u64 request, JsonValue, ByteBuffer);
 
 }

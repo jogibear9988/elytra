@@ -22,14 +22,23 @@ BODY = """    virtual Messages::WebContentClient::FireflyPermissionCheckResponse
     }"""
 
 
+FILE_METHOD = "\n    [NotRouted] firefly_file_access_request(u64 page, u64 document_ns, u64 document_local, u64 request, JsonValue metadata, ByteBuffer bytes) =|\n"
+FILE_DECLARATION = "    virtual void firefly_file_access_request(u64 page, u64 document_ns, u64 document_local, u64 request, JsonValue metadata, ByteBuffer bytes) = 0;"
+FILE_BODY = """    virtual void firefly_file_access_request(u64 page, u64 document_ns, u64 document_local, u64 request, JsonValue metadata, ByteBuffer bytes)
+    {
+        Firefly::Bytes::accept_file_access_request(*this, page, document_ns, document_local, request, move(metadata), move(bytes));
+    }"""
+
+
 def extend(source):
     if (
         source.count("endpoint WebContentClient routed by Web::PageId page_id") != 1
         or not source.endswith("}\n")
+        or "firefly_file_access_request" in source
         or "firefly_permission_check" in source
     ):
         raise ValueError("Review private permission endpoint seam")
-    return INCLUDE + source[:-2] + METHOD + "}\n"
+    return INCLUDE + source[:-2] + METHOD + FILE_METHOD + "}\n"
 
 
 def main():
@@ -57,7 +66,7 @@ def main():
         subprocess.run([sys.executable, str(GENERATOR), *baseline], check=True)
         source = input_path.read_text()
         adapted = extend(source)
-        assert adapted.removeprefix(INCLUDE).replace(METHOD, "") == source
+        assert adapted.removeprefix(INCLUDE).replace(METHOD, "").replace(FILE_METHOD, "") == source
         definition = directory / "WebContentClient.ipc"
         definition.write_text(adapted)
         subprocess.run(
@@ -67,15 +76,20 @@ def main():
         header = output.read_text()
         before, after = message_ids(old_header.read_text()), message_ids(header)
         if (
-            len(after) != len(before) + 2
+            len(after) != len(before) + 3
             or any(after.get(name) != value for name, value in before.items())
             or after.get("FireflyPermissionCheck") != max(before.values()) + 1
             or after.get("FireflyPermissionCheckResponse") != max(before.values()) + 2
+            or after.get("FireflyFileAccessRequest") != max(before.values()) + 3
         ):
             raise ValueError("Permission query changed existing native IPC IDs")
-        if header.count(DECLARATION) != 1 or not implementation.is_file():
+        if (
+            header.count(DECLARATION) != 1
+            or header.count(FILE_DECLARATION) != 1
+            or not implementation.is_file()
+        ):
             raise ValueError("Review permission query generated stub seam")
-        output.write_text(header.replace(DECLARATION, BODY))
+        output.write_text(header.replace(DECLARATION, BODY).replace(FILE_DECLARATION, FILE_BODY))
         for invalid in (source + METHOD, "", adapted):
             try:
                 extend(invalid)

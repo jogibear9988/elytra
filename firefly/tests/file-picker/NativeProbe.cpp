@@ -266,6 +266,62 @@ int main(int argc, char** argv)
         grants.release(foreign, child_token);
         require(!grants.read(owner, child_token, 0, 1).is_error(), "foreign release ignored");
 
+        auto save_path = directory.filePath("writable.txt");
+        auto save_utf8 = save_path.toUtf8();
+        auto save = grants.admit_save(owner, StringView(save_utf8.constData(), save_utf8.size()));
+        require(!save.is_error(), "save selection creates a native file capability");
+        auto save_token = save.value().token;
+        require(!grants.read(owner, save_token, 0, 8).is_error(), "new save target is readable");
+        require(
+            grants.begin_write(owner, child_token, false).is_error(), "read grant cannot write");
+        require(
+            grants.begin_write(foreign, save_token, false).is_error(), "foreign writer rejected");
+        auto writer = grants.begin_write(owner, save_token, false);
+        require(!writer.is_error(), "create isolated writer");
+        require(
+            grants.begin_write(owner, save_token, false).is_error(), "one writer per capability");
+        require(!grants.write(owner, writer.value(), 0, "hello world"sv.bytes()).is_error(),
+            "staged write");
+        require(!grants.write(owner, writer.value(), 6, "Elytra"sv.bytes()).is_error(),
+            "positional overwrite");
+        require(!grants.truncate(owner, writer.value(), 9).is_error(), "staged truncate");
+        QFile saved(save_path);
+        require(saved.open(QIODevice::ReadOnly) && saved.readAll().isEmpty(),
+            "edits are invisible before close");
+        saved.close();
+        require(grants.finish_write(foreign, writer.value(), true).is_error(),
+            "foreign close rejected");
+        require(
+            !grants.finish_write(owner, writer.value(), true).is_error(), "commit staged contents");
+        require(
+            saved.open(QIODevice::ReadOnly) && saved.readAll() == "hello Ely", "committed bytes");
+        saved.close();
+        part = grants.read(owner, save_token, 0, 64);
+        require(!part.is_error() && part.value().bytes() == "hello Ely"sv.bytes(),
+            "save capability follows its own committed replacement");
+
+        writer = grants.begin_write(owner, save_token, true);
+        require(!writer.is_error(), "copy an existing save target");
+        require(
+            !grants.write(owner, writer.value(), 8, "ytra"sv.bytes()).is_error(), "extend copy");
+        require(
+            !grants.finish_write(owner, writer.value(), true).is_error(), "commit copied contents");
+        require(saved.open(QIODevice::ReadOnly) && saved.readAll() == "hello Elytra",
+            "keepExistingData retains bytes");
+        saved.close();
+
+        writer = grants.begin_write(owner, save_token, false);
+        require(!writer.is_error()
+                && !grants.write(owner, writer.value(), 0, "discard"sv.bytes()).is_error(),
+            "stage aborted writer");
+        require(!grants.finish_write(owner, writer.value(), false).is_error(), "abort writer");
+        require(saved.open(QIODevice::ReadOnly) && saved.readAll() == "hello Elytra",
+            "abort preserves previous contents");
+        saved.close();
+
+        writer = grants.begin_write(owner, save_token, false);
+        require(!writer.is_error(), "leave writer pending during navigation");
+
         grant_request = picker.request_grants(
             owner, select_folder, [&](ErrorOr<Vector<Grants::Handle>> result) {
                 require(!result.is_error() && result.value().is_empty(), "cancel grants nothing");
@@ -279,6 +335,14 @@ int main(int argc, char** argv)
             "navigation revokes directory");
         require(grants.next_entries(owner, pending_cursor.value(), 1).is_error(),
             "navigation revokes iteration");
+        require(grants.finish_write(owner, writer.value(), true).is_error(),
+            "navigation revokes writer");
+        require(QDir(directory.path())
+                    .entryList({ ".elytra-file-*" }, QDir::Files | QDir::Hidden)
+                    .isEmpty(),
+            "retired writers remove their temporary files");
+        std::puts(
+            "PASS document-bound save, positional write/truncate, commit, abort and retirement");
         std::puts("PASS document-bound descriptor grants, bounded reads and paging, navigation "
                   "revocation");
     }

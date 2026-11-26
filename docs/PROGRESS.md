@@ -17424,6 +17424,23 @@ Save grants, staged writable streams, persistent permissions and private
 storage remain part of the second patch. Windows grant support is unverified
 and explicitly unavailable in this provider.
 
+## Route document-bound file operations to the native chooser
+
+The private WebContent request and reply endpoints append message IDs without
+moving any pinned upstream IDs. The browser resolves the page and document
+on the sending connection, checks the canonical secure same-origin context
+and requires browser-side transient activation for chooser requests. File
+reads, child lookups and directory iteration use tokens on the same route.
+
+Save selections now grant a destination in the browser. An isolated writer
+can copy existing contents, write at offsets, truncate, commit on close or
+discard on abort. Each write stays bounded. Navigation discards pending
+writes and invalidates their tokens. The macOS Firefly build and hidden
+native picker probe passed, including foreign document refusal, on-disk
+atomic visibility, readback, abort, and retirement cleanup. The JavaScript
+bindings and renderer reply handling still have to be connected. Origin
+private storage, persistent grants, and Windows support remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -87,15 +87,16 @@ void FilePicker::retire_document()
 ErrorOr<void> FilePicker::request_grants(
     FileAccessGrants::Document document, Selection const& selection, GrantCompletion complete)
 {
-    if (!FileAccessGrants::supported() || selection.mode == Mode::SaveFile)
+    if (!FileAccessGrants::supported())
         return Error::from_errno(ENOTSUP);
     if (!document.namespace_id || !document.local_id || !complete)
         return Error::from_errno(EINVAL);
 
     auto kind = selection.mode == Mode::Directory ? FileAccessGrants::Kind::Directory
                                                   : FileAccessGrants::Kind::File;
-    bool admitted = request_selection(
-        selection, [this, document, kind, complete = move(complete)](QStringList paths) mutable {
+    bool admitted = request_selection(selection,
+        [this, document, kind, save = selection.mode == Mode::SaveFile, complete = move(complete)](
+            QStringList paths) mutable {
             auto issue_grants = [&]() -> ErrorOr<Vector<FileAccessGrants::Handle>> {
                 if (paths.size() > static_cast<qsizetype>(max_files))
                     return Error::from_errno(E2BIG);
@@ -108,8 +109,11 @@ ErrorOr<void> FilePicker::request_grants(
 
                 for (auto const& path : paths) {
                     auto bytes = path.toUtf8();
-                    handles.append(TRY(m_grants.admit(
-                        document, StringView(bytes.constData(), bytes.size()), kind)));
+                    StringView selected_path(bytes.constData(), bytes.size());
+                    if (save)
+                        handles.append(TRY(m_grants.admit_save(document, selected_path)));
+                    else
+                        handles.append(TRY(m_grants.admit(document, selected_path, kind)));
                 }
 
                 rollback.disarm();

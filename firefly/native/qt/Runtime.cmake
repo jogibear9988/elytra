@@ -257,6 +257,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/PreloadProcess.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Permissions.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/FileAccess.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Frames.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../frames/Registry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/WebRequest.cpp"
